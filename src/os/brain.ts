@@ -529,6 +529,37 @@ export function ask(raw: string): Reply {
     };
   }
 
+  /* ---- beginner mode: "what is X?" / "explain X" ---- */
+  const GLOSSARY: { re: RegExp; name: string; plain: string; yours: string }[] = [
+    { re: /web ?hook/, name: "Webhook", plain: "A doorbell for software: instead of checking your store every minute, the store calls a URL you gave it the moment something happens and hands over the details.", yours: "WooCommerce rings NEXUS//OS on every order → the AI saves it, plays the cash sound and messages your phone. Instant, no refreshing." },
+    { re: /\bapi\b/, name: "API", plain: "A waiter: you don't enter the kitchen, you hand the waiter a request and it brings back exactly what you ordered from another service.", yours: "The AI uses the WooCommerce API for orders, Meta API for Instagram stats, Telegram API to reach your phone." },
+    { re: /roas/, name: "ROAS", plain: "Shillings back per shilling spent on ads. ROAS 4.2 = KSh 4.20 back per KSh 1. Below ~2 usually loses money after costs.", yours: "Finance ranks campaigns by ROAS — the IG Story boost at 0.0 is flagged to pause." },
+    { re: /funnel/, name: "Sales funnel", plain: "Views → clicks → carts → purchases, shrinking at every step. Your job is finding the leakiest step.", yours: "Ask “analyze my website” — the AI walks the funnel and points at your biggest leak." },
+    { re: /oauth/, name: "OAuth", plain: "A hotel key-card instead of your house keys: limited access, revocable anytime, password never shared.", yours: "Meta/TikTok connections use read-only passes — the AI can never post or delete without higher permission." },
+    { re: /localhost/, name: "Localhost", plain: "Your PC talking to itself. http://localhost:8080 only you can see — the internet cannot reach it directly.", yours: "To let your online store reach it while developing, use a tunnel (ask “what is ngrok?”)." },
+    { re: /ngrok|tunnel/, name: "Tunnel (ngrok)", plain: "A secure hallway from the public internet into your PC: a public URL forwards everything to your localhost without opening router ports.", yours: "Point the WooCommerce webhook at your ngrok URL in development; move the receiver to a $5 VPS for 24/7 production." },
+    { re: /environment variable|\.env\b|env file/, name: ".env file", plain: "A locked drawer for secrets. Code reads keys from it; it is never uploaded to GitHub — .gitignore blocks it.", yours: "The demo needs none. Phase 2 adds WooCommerce keys, OpenAI key and Telegram token there." },
+    { re: /database|postgres|supabase/, name: "Database", plain: "A spreadsheet many programs can safely read/write at once, guaranteed nothing gets lost or half-written.", yours: "Demo tables live in your browser's localStorage; production uses the same schema on PostgreSQL (Supabase free tier)." },
+    { re: /\bcrm\b|lead/, name: "CRM / Lead", plain: "Your notebook of everyone who might buy. A lead is one person; you move them through contacted → proposal → negotiation → won.", yours: "The Freelance tab tracks leads with deadlines; the AI nags you about hot ones." },
+    { re: /stk|m-?pesa|mpesa/, name: "M-Pesa STK Push", plain: "Your server asks Safaricom to pop a PIN prompt on the customer's phone; they confirm, and Safaricom calls your webhook to verify.", yours: "Phase 3 uses the Daraja API (free sandbox). This demo's checkout is explicitly fake — no money moves." },
+    { re: /conversion rate|conversion\b/, name: "Conversion rate", plain: "Out of 100 visitors, how many bought. Every +0.5% is nearly free money because the traffic already arrived.", yours: "Inventory shows it per product — ThinkPad T480 leads at 3.1%." },
+    { re: /margin/, name: "Profit margin", plain: "The slice of the sale you keep: (price − cost) ÷ price. KSh 42,500 bought at 32,000 → 24.7% margin.", yours: "Finance ranks laptops by margin; high margin + high conversion = where ads should go." },
+    { re: /socket|real-?time/, name: "Sockets / real-time", plain: "A phone line that stays open, so the server can push updates the instant they happen instead of you refreshing.", yours: "The production server uses Socket.io — the live feed, KPIs and cash-register flash are socket events." },
+  ];
+  const ex = /(what is|what's|whats|explain|define|meaning of|teach me about)\s+(?:a |an |the )?([a-z ./-]+)/i.exec(q);
+  if (ex) {
+    const g = GLOSSARY.find((e) => e.re.test(ex[2].trim()));
+    if (g)
+      return {
+        sound: "ding",
+        html:
+          S("Beginner mode — " + g.name) +
+          L(g.plain) +
+          L(`<b style="color:var(--txt)">In your system:</b> ${g.yours}`) +
+          D([["Tip", `Ask another: “what is ROAS?” · “explain a funnel” · “what is ngrok?”`]]),
+      };
+  }
+
   /* ---- fallback ---- */
   return {
     sound: "ding",

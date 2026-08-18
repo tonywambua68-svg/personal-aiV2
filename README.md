@@ -10,6 +10,13 @@ A personal AI system for a **laptop reselling business**: it monitors your store
 
 ### Option A — Portable demo (recommended, ZERO install steps beyond Node)
 
+**Windows one-click:** double-click **`start-ai.bat`** in the project root — it checks Node.js,
+starts the server and opens the dashboard for you. Stop it with **`stop-ai.bat`**.
+Full step-by-step Windows guide (install from zero, connect WooCommerce, phone alerts,
+troubleshooting): see **`USER_GUIDE.md`**.
+
+Manual version:
+
 Everything you need is in the **`standalone/`** folder. Pure vanilla HTML/CSS/JS — no frameworks, no npm packages.
 
 ```bash

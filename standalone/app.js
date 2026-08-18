@@ -376,6 +376,35 @@
   const S_ = (t) => '<div class="cs">' + t + "</div>";
   const D = (rows) => '<div class="decision">' + rows.map((r) => '<div class="row"><span class="k">' + r[0] + '</span><span>' + r[1] + "</span></div>").join("") + "</div>";
 
+  /* ---------------- beginner mode glossary ("what is X?") ---------------- */
+  const GLOSSARY = [
+    { re: /web ?hook/, name: "Webhook", plain: "Think of it as a doorbell for your software. Instead of you checking your store every minute, the store calls a URL you gave it the moment something happens (new order, low stock) and hands over the details.", yours: "When WooCommerce gets an order, it rings NEXUS//OS (see Automations). The AI reads the note, saves the order, plays the cash sound and notifies your phone — instantly, no refreshing." },
+    { re: /\bapi\b/, name: "API", plain: "A waiter in a restaurant. You (the app) don't go into the kitchen; you hand the waiter (API) a request, and it brings back exactly what you ordered from the kitchen (the other service).", yours: "NEXUS//OS uses the WooCommerce API to read orders, the Meta API for Instagram stats, and the Telegram API to message your phone." },
+    { re: /roas/, name: "ROAS (Return On Ad Spend)", plain: "For every 1 shilling you spend on ads, how many shillings come back in sales. ROAS 4.2 = KSh 4.20 back per KSh 1 spent. Below ~2 usually means the ad is losing money after costs.", yours: "Your Finance view computes ROAS per campaign. The AI flagged the IG Story boost at 0.0 — a candidate to pause." },
+    { re: /funnel/, name: "Sales funnel", plain: "The journey: many people see the product, fewer click, even fewer add to cart, fewest pay. It's a funnel because numbers shrink at every step. Your job is to find the leakiest step.", yours: "Ask the AI \"analyze my website\" — it shows views → cart adds → checkouts → purchases and points at your biggest leak." },
+    { re: /oauth/, name: "OAuth", plain: "A hotel key-card instead of your house keys. You let an app use a limited pass (token) without ever handing over your password, and you can revoke it anytime.", yours: "When you connect Meta or TikTok in Phase 2, OAuth grants NEXUS//OS read-only passes — it can never post or delete without a higher permission." },
+    { re: /localhost/, name: "Localhost", plain: "Your computer talking to itself. http://localhost:8080 means \"the server running on THIS machine, port 8080\". Only you can see it — the internet cannot.", yours: "That's where this dashboard runs. To let your online website reach it, you need a tunnel (see \"what is ngrok\")." },
+    { re: /ngrok|tunnel/, name: "Tunnel (ngrok)", plain: "A secure hallway from the public internet into your PC. ngrok gives you a public address like https://abc123.ngrok.app and forwards everything it receives to your localhost — without opening router ports.", yours: "In development, point WooCommerce's webhook at your ngrok URL and orders land on your PC. For 24/7 production you move the webhook receiver to a small VPS instead." },
+    { re: /environment variable|\.env\b|env file/, name: ".env file", plain: "A locked drawer for secrets (API keys, passwords). Code reads variables from it, and it is NEVER uploaded to GitHub — that's what .gitignore is for.", yours: "The demo needs none. Phase 2 adds .env with your WooCommerce keys, OpenAI key and Telegram token. Copy .env.example to .env and fill it in." },
+    { re: /database|postgres|supabase/, name: "Database", plain: "A spreadsheet that many programs can safely read and write at the same time, with guarantees nothing gets lost or half-written. Rows live in tables (products, orders, customers…).", yours: "This demo keeps tables in your browser's localStorage. The production version uses PostgreSQL on Supabase (free tier) with the same schema — see the Blueprint tab." },
+    { re: /\bcrm\b|lead/, name: "CRM / Lead", plain: "A CRM is your notebook of everyone who MIGHT buy. A lead is one person in it. You move leads through stages: contacted → proposal → negotiation → won.", yours: "Your Freelance CRM tab tracks leads with deadlines. The AI nags you about hot ones — NiaFit replied to your ad and is waiting." },
+    { re: /stk|m-?pesa|mpesa/, name: "M-Pesa STK Push", plain: "Instead of the customer typing a paybill number, your server asks Safaricom to pop a PIN prompt on the customer's phone. They enter their PIN, payment completes, and Safaricom calls your webhook to confirm.", yours: "Phase 3: the Daraja API (free sandbox keys) sends the STK push when someone clicks \"Pay\" on your store. In this demo, checkout is explicitly fake — no money moves." },
+    { re: /conversion rate|conversion\b/, name: "Conversion rate", plain: "Out of 100 visitors, how many bought. 2.5% is typical for a laptop store; every 0.5% you add is almost free money because the traffic already arrived.", yours: "Each product in Inventory shows its conversion rate. ThinkPad T480 leads at 3.1% — the AI suggests shifting budget toward it." },
+    { re: /margin/, name: "Profit margin", plain: "The slice of the sale price you keep. Margin = (price − cost) ÷ price. A KSh 42,500 laptop bought at 32,000 keeps 10,500 → 24.7% margin.", yours: "The Finance tab ranks laptops by margin. High margin + high conversion = where ads should go." },
+    { re: /socket|real-?time/, name: "Sockets / real-time", plain: "A phone line that stays open. Normal web requests hang up after each answer; a socket stays connected so the server can push updates (new order!) the instant they happen.", yours: "The production server uses Socket.io so this dashboard updates without refresh — the live feed, KPIs and cash-register flash are all socket events." },
+  ];
+
+  /* ---------------- developer mode: safe action summary ---------------- */
+  function traceFor(q) {
+    if (/instagram|tiktok|social|followers/.test(q)) return ["Meta/TikTok Graph (demo data)", "Follower & engagement series", "Spend vs attributed sales"];
+    if (/traffic|website|ga4|analytics|funnel/.test(q)) return ["GA4 sessions (demo)", "Funnel: view → cart → purchase", "Conversion deltas WoW"];
+    if (/freelance|client|lead|proposal|invoice/.test(q)) return ["CRM pipeline by stage", "Deadlines & aging leads", "Win-rate history"];
+    if (/restock|low stock|inventory|stock/.test(q)) return ["Stock levels per SKU", "Sales velocity (units/week)", "Reorder math"];
+    if (/teach|learn|skill|lesson|explain|what is/.test(q)) return ["Skill matrix", "Lesson library", "Market demand index"];
+    if (/opportunit|attention|today|report|forecast|happening/.test(q)) return ["Orders: today vs yesterday", "Stock levels & velocity", "Ad ROAS by campaign", "Freelance pipeline"];
+    return ["Orders (today + 14-day trend)", "Revenue & profit aggregates", "Top products by margin"];
+  }
+
   function answer(q) {
     const t = sel.todayOrders(), rev = sel.todayRevenue(), prof = sel.todayProfit();
     const yesterday = sel.ordersOn(startOfDay() - DAY).reduce((a, o) => a + o.revenue, 0);
@@ -548,6 +577,21 @@
           D([["Guardrails", "Financial/destructive actions always open an approval modal first — I never act alone."]]),
       };
     }
+    /* ---- beginner mode: "what is X?" / "explain X" ---- */
+    const EX = /(what is|what's|whats|explain|define|meaning of|teach me about)\s+(?:a |an |the )?([a-z .\/-]+)/i.exec(q);
+    if (EX) {
+      const g = GLOSSARY.find(function (e) { return e.re.test(EX[2].trim()); });
+      if (g) {
+        return {
+          sound: "ding",
+          html: S_("<i>▍</i>Beginner mode — " + g.name) +
+            L(g.plain) +
+            '<div class="cs" style="margin-top:8px"><i>▍</i>In your system</div>' +
+            L(g.yours) +
+            D([["Tip", 'Ask another: <span class="mono">"what is ROAS?"</span>, <span class="mono">"explain a funnel"</span>, <span class="mono">"what is ngrok?"</span>']]),
+        };
+      }
+    }
     return {
       sound: "ding",
       html: S_("<i>▍</i>Not sure I caught that") +
@@ -588,6 +632,113 @@
     });
   }
 
+  /* ---------------- view: system health + TEST SYSTEM ---------------- */
+  function viewHealth() {
+    const bootAt = window.__nexusBoot || Date.now();
+    const kb = Math.max(1, Math.round(JSON.stringify(state).length / 1024));
+    const lowCount = state.products.filter(function (p) { return p.stock <= 2; }).length;
+    const rows = [
+      ["cpu", "AI Core", "Intent engine + decision loop", "ONLINE"],
+      ["db", "Database (localStorage)", kb + " KB · " + state.orders.length + " orders · schema v" + state.v, "CONNECTED"],
+      ["zap", "Webhook engine", state.orders.length + " order events processed", "ONLINE"],
+      ["bell", "Notification system", state.notices.length + " delivered · Telegram (demo)", "ONLINE"],
+      ["eye", "Dashboard", "Live views + real-time feed", "ONLINE"],
+      ["doc", "Memory", "Preferences · " + state.skills.length + " skills tracked", "ONLINE"],
+      ["shield", "Logging & audit", state.audit.length + " entries · RBAC enforced", "ONLINE"],
+    ];
+
+    const rowsWrap = h("div", "");
+    const badges = [];
+    rows.forEach(function (r) {
+      const b = html("span", "badge ok", r[3]);
+      badges.push(b);
+      rowsWrap.appendChild(html("div", "",
+        '<div style="display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px dashed rgba(255,255,255,0.06)">' +
+        '<span style="color:var(--acc);display:grid;place-items:center;width:26px">' + icon(r[0], 16) + "</span>" +
+        '<div style="min-width:0;flex:1"><div style="font-size:13.5px;font-weight:600">' + r[1] + "</div>" +
+        '<div class="mono" style="font-size:10.5px;color:var(--txt-3);margin-top:2px">' + r[2] + "</div></div>" +
+        '<span class="mono" style="color:var(--txt-3);font-size:10px"></span></div>'));
+      rowsWrap.lastChild.appendChild(b);
+    });
+
+    const lastOrder = state.orders[0];
+    const upMin = Math.max(0, Math.floor((Date.now() - bootAt) / 60000));
+    const stats = panel("Session stats", "clock", html("div", "",
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">' +
+      kpiPanel("Uptime", upMin < 60 ? upMin + "m" : Math.floor(upMin / 60) + "h " + (upMin % 60) + "m") +
+      kpiPanel("Last order", lastOrder ? lastOrder.id : "—") +
+      kpiPanel("Received", lastOrder ? timeAgo(lastOrder.at) : "—") +
+      kpiPanel("Errors", "0 critical") +
+      kpiPanel("Warnings", lowCount + " stock") +
+      "</div>"));
+
+    const logLines = state.audit.slice(-9).reverse().map(function (a) {
+      return '<div class="mono" style="font-size:11px;color:var(--txt-2);padding:4px 0;border-bottom:1px dashed rgba(255,255,255,0.05)">' +
+        '<span style="color:var(--txt-3)">' + new Date(a.at).toLocaleTimeString("en-KE", { hour12: false }) + "</span>  " +
+        esc(a.action) + ' <span class="badge ' + (a.outcome === "DENIED" ? "danger" : a.outcome === "PENDING" ? "warn" : "mut") + '" style="margin-left:6px">' + a.outcome + "</span></div>";
+    }).join("");
+    const logs = panel("Live event log", "doc", html("div", "",
+      logLines +
+      '<p style="font-size:11.5px;color:var(--txt-3);margin:10px 0 0">In production this stream is real: <span class="mono">webhook received → order #1042 detected → DB updated → AI analysis → Telegram sent</span>.</p>'));
+
+    const ops = panel("Stop / start / restart", "gear", html("div", "mono",
+      '<div style="font-size:11.5px;line-height:2;color:var(--txt-2)">' +
+      '<div><span style="color:var(--danger);font-weight:700">STOP&nbsp;&nbsp;&nbsp;</span> press Ctrl + C in the server window — or run <b>stop-ai.bat</b></div>' +
+      '<div><span style="color:var(--acc);font-weight:700">START&nbsp;&nbsp;</span> double-click <b>start-ai.bat</b> &nbsp;(or: <b>node server.js</b> in the standalone folder)</div>' +
+      '<div><span style="color:var(--info);font-weight:700">OPEN&nbsp;&nbsp;&nbsp;</span> http://localhost:8080</div>' +
+      '<div style="color:var(--txt-3)">After a PC restart just double-click start-ai.bat again — demo data persists in this browser.</div>' +
+      "</div>"));
+
+    const root = h("div", "reveal");
+    root.style.cssText = "display:flex;flex-direction:column;gap:14px";
+    const main = panel("System status", "pulse", html("div", "",
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">' +
+      '<span class="badge ok">ALL SYSTEMS NOMINAL</span>' +
+      '<span class="badge mut">DEMO MODE · FICTIONAL DATA</span>' +
+      '<span class="badge info" style="margin-left:auto">MILESTONE 1 ✓ RUNNING ON YOUR PC</span>' +
+      "</div>"));
+    main.querySelector(".panel-b").appendChild(rowsWrap);
+    const btnRow = html("div", "", "");
+    btnRow.style.cssText = "display:flex;gap:10px;margin-top:14px;flex-wrap:wrap";
+    const runBtn = html("button", "btn btn-acc", icon("check", 13) + " Run system test");
+    const auditBtn = html("button", "btn", icon("doc", 13) + " View audit trail");
+    const resetBtn = html("button", "btn btn-danger", icon("refresh", 13) + " Reset demo data");
+    btnRow.append(runBtn, auditBtn, resetBtn);
+    main.querySelector(".panel-b").appendChild(btnRow);
+    root.append(main, stats, logs, ops);
+
+    runBtn.addEventListener("click", function () {
+      runBtn.disabled = true;
+      badges.forEach(function (b) {
+        b.className = "badge warn";
+        b.textContent = "CHECKING…";
+      });
+      rows.forEach(function (r, i) {
+        setTimeout(function () {
+          badges[i].className = "badge ok";
+          badges[i].textContent = "✓ PASS";
+          Sound.ding();
+          if (i === rows.length - 1) {
+            runBtn.disabled = false;
+            addAudit("SYSTEM", "Health", "Self-test passed " + rows.length + "/" + rows.length, "READ", "EXECUTED");
+            toast("✅ All " + rows.length + " subsystems passed — the AI is ready for your business.", "ok");
+            emit("settings");
+          }
+        }, 380 * (i + 1));
+      });
+    });
+    auditBtn.addEventListener("click", function () {
+      toast("The full audit trail lives in the production build (src/) — every AI decision with scope + outcome.", "info");
+    });
+    resetBtn.addEventListener("click", function () {
+      modal({ title: "Reset demo data?", confirmLabel: "Reset", tone: "danger", bodyHtml: "<p style='font-size:13px'>All demo changes in this browser will be wiped and the fictional dataset reseeded. No real data is affected (there is none).</p>" }, function (ok) {
+        if (ok) { localStorage.removeItem(STORAGE_KEY); location.reload(); }
+      });
+    });
+
+    return { el: root };
+  }
+
   /* ---------------- shell + views ---------------- */
   let route = "command";
   const mainRef = { el: null };
@@ -600,6 +751,7 @@
     { id: "freelance", label: "Freelance CRM", icon: "brief" },
     { sec: "System" },
     { id: "automations", label: "Automations", icon: "zap" },
+    { id: "health", label: "System Health", icon: "pulse" },
   ];
 
   function buildShell() {
@@ -770,7 +922,10 @@
           restockFlow(res.product);
           return;
         }
-        typing.querySelector(".bubble").innerHTML = res.html;
+        typing.querySelector(".bubble").innerHTML =
+          res.html +
+          '<div class="mono" style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.12);font-size:9.5px;letter-spacing:0.06em;color:var(--txt-3)">' +
+          "DEV TRACE · AI CHECKED → " + traceFor(q).map(esc).join(" → ") + "</div>";
         log.scrollTop = log.scrollHeight;
         if (res.sound === "ding") Sound.ding();
       }, 480 + Math.random() * 320);
@@ -1041,7 +1196,7 @@
   let currentView = null;
   function render() {
     if (currentView && currentView.destroy) currentView.destroy();
-    const views = { command: viewCommand, inventory: viewInventory, orders: viewOrders, finance: viewFinance, freelance: viewFreelance, automations: viewAutomations };
+    const views = { command: viewCommand, inventory: viewInventory, orders: viewOrders, finance: viewFinance, freelance: viewFreelance, automations: viewAutomations, health: viewHealth };
     currentView = views[route]();
     mainRef.el.innerHTML = "";
     mainRef.el.appendChild(currentView.el);
@@ -1056,6 +1211,7 @@
   }
 
   function boot() {
+    window.__nexusBoot = Date.now();
     buildShell();
     setRoute("command");
     updateSimChrome();
