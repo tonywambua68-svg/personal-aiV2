@@ -1250,7 +1250,14 @@
   let currentView = null;
   function render() {
     if (currentView && currentView.destroy) currentView.destroy();
-    const views = { command: viewCommand, inventory: viewInventory, orders: viewOrders, finance: viewFinance, freelance: viewFreelance, automations: viewAutomations, health: viewHealth };
+    const views = {
+      command: viewCommand, inventory: viewInventory, orders: viewOrders, finance: viewFinance,
+      freelance: viewFreelance, automations: viewAutomations, health: viewHealth,
+      /* agent layer views (agent.js loads after app.js, so resolve lazily) */
+      dashboard: function () { return window.NexusAgent.viewDashboard(); },
+      tasks: function () { return window.NexusAgent.viewTasks(); },
+      knowledge: function () { return window.NexusAgent.viewKnowledge(); },
+    };
     currentView = views[route]();
     mainRef.el.innerHTML = "";
     mainRef.el.appendChild(currentView.el);
