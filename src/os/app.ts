@@ -4,6 +4,7 @@
 import { sel, startOps, store } from "./store";
 import { esc, flash, h, html, icon, timeAgo, toast } from "./ui";
 import { sfx, unlockAudio } from "./sound";
+import { voice } from "./voice";
 import { renderCommand, type View } from "./views/command";
 import { renderFinance, renderInventory, renderOrders } from "./views/tables";
 import { renderAnalytics, renderAutomations, renderFreelance } from "./views/ops";
@@ -281,6 +282,19 @@ export function boot(root: HTMLElement) {
     window.clearTimeout(rz);
     rz = window.setTimeout(() => store.emit("tick"), 200);
   });
+
+  /* voice layer — same AI brain, memory & approval gates */
+  voice.init();
+  voice.setNavigate(
+    (r) => {
+      if (r in renderers) {
+        go(r as Route);
+        return true;
+      }
+      return false;
+    },
+    () => route
+  );
 
   paintSim();
   paintSnd();

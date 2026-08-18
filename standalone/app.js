@@ -42,6 +42,7 @@
     zap: "M13 2L3 14h8l-1 8 10-12h-8l1-8z",
     bell: "M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0",
     sndOn: "M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13",
+    mic: "M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3zM19 10v1a7 7 0 01-14 0v-1M12 18v4M8 22h8",
     sndOff: "M11 5L6 9H2v6h4l5 4V5zM22 9l-6 6m0-6l6 6",
     x: "M18 6L6 18M6 6l12 12",
     check: "M20 6L9 17l-5-5",
@@ -328,7 +329,11 @@
       '<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 16px 16px">' +
       '<button class="btn" data-no>' + (opts.cancelLabel || "Cancel") + "</button>" +
       '<button class="btn ' + (opts.tone === "danger" ? "btn-danger" : "btn-acc") + '" data-yes>' + (opts.confirmLabel || "Confirm") + "</button></div></div>";
-    const done = (v) => { root.remove(); if (cb) cb(v); };
+    const done = (v) => {
+      if (window.__NEXUS && window.__NEXUS.pendingConfirm && window.__NEXUS.pendingConfirm.resolve === done) window.__NEXUS.pendingConfirm = null;
+      root.remove(); if (cb) cb(v);
+    };
+    if (window.__NEXUS) window.__NEXUS.pendingConfirm = { label: opts.title, resolve: done };
     root.querySelector("[data-close]").addEventListener("click", () => done(false));
     root.querySelector("[data-no]").addEventListener("click", () => done(false));
     root.querySelector("[data-yes]").addEventListener("click", () => done(true));
@@ -875,8 +880,10 @@
       '<span class="mono" style="margin-left:auto;font-size:10px;color:var(--txt-3)">PRESS / TO FOCUS</span></div>' +
       '<div class="panel-b"><div id="chatLog" style="max-height:380px;overflow:auto;margin-bottom:12px"></div>' +
       '<div class="chip-row" id="chips" style="margin-bottom:10px"></div>' +
-      '<div style="display:flex;gap:10px"><input id="cmdInput" placeholder="Ask: how much did I sell today?" style="flex:1" autocomplete="off" />' +
-      '<button class="btn btn-acc" id="cmdSend">' + icon("send", 14) + " SEND</button></div></div></div>";
+      '<div style="display:flex;gap:10px;align-items:center"><input id="cmdInput" placeholder="Ask: how much did I sell today?" style="flex:1" autocomplete="off" />' +
+      '<button class="btn" id="cmdMic" title="Talk to the AI (voice)">' + icon("mic", 14) + " TALK</button>" +
+      '<button class="btn btn-acc" id="cmdSend">' + icon("send", 14) + " SEND</button></div>" +
+      '<div id="cmdVoiceHint" class="mono" style="margin-top:8px;font-size:10px;letter-spacing:0.08em;color:var(--txt-3);min-height:13px"></div></div></div>';
 
     const CHIPS = ["How much did I sell today?", "Which laptop made the most profit?", "Find opportunities", "Analyze my Instagram", "What needs my attention?", "Teach me how to connect WordPress", "Restock ThinkPad T480", "Daily report"];
     const chips = wrap.querySelector("#chips");
@@ -900,11 +907,11 @@
       L("I am watching your store, inventory, ads and leads. " + sel.todayOrders().length + " order" + (sel.todayOrders().length === 1 ? "" : "s") + " today · " + ksh(sel.todayRevenue()) + " revenue.") +
       L('Ask me anything below — or tap a quick command. Financial actions always need your approval first.'));
 
-    function send(raw) {
+    function send(raw, opts) {
       const q = raw.trim();
       if (!q) return;
       wrap.querySelector("#cmdInput").value = "";
-      bubble("user", esc(q));
+      bubble("user", (opts && opts.voice ? '<span title="voice input" style="color:var(--acc);margin-right:6px">' + icon("mic", 12) + "</span>" : "") + esc(q));
       addAudit("YOU", "AI Brain", 'Command: "' + q.slice(0, 80) + '"', "READ", "LOGGED");
       const typing = bubble("ai", '<span class="typing"><span></span><span></span><span></span></span>');
       setTimeout(function () {
@@ -923,6 +930,7 @@
           return;
         }
         typing.querySelector(".bubble").innerHTML =
+          (opts && opts.voice ? '<span title="spoken reply" style="color:var(--info);margin-right:6px">' + icon("sndOn", 13) + "</span>" : "") +
           res.html +
           '<div class="mono" style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.12);font-size:9.5px;letter-spacing:0.06em;color:var(--txt-3)">' +
           "DEV TRACE · AI CHECKED → " + traceFor(q).map(esc).join(" → ") + "</div>";
@@ -932,6 +940,28 @@
     }
     wrap.querySelector("#cmdSend").addEventListener("click", () => send(wrap.querySelector("#cmdInput").value));
     wrap.querySelector("#cmdInput").addEventListener("keydown", (e) => { if (e.key === "Enter") send(wrap.querySelector("#cmdInput").value); });
+
+    /* voice bridge — lets voice.js drive this exact console (same AI, memory, audit) */
+    if (window.__NEXUS) {
+      window.__NEXUS.send = send;
+      window.__NEXUS.consoleReady = true;
+      const hintEl = wrap.querySelector("#cmdVoiceHint");
+      window.__NEXUS.setHint = function (txt, tone) {
+        if (!hintEl) return;
+        hintEl.textContent = txt || "";
+        hintEl.style.color = tone === "acc" ? "var(--acc)" : tone === "warn" ? "var(--warn)" : "var(--txt-3)";
+      };
+    }
+    wrap.querySelector("#cmdMic").addEventListener("click", function () {
+      if (window.NexusVoice) window.NexusVoice.tapMic();
+      else toast("Voice layer not loaded — reload the page.", "warn");
+    });
+    /* voice asked a question while we weren't mounted — deliver it now */
+    if (window.__NEXUS && window.__NEXUS.pendingAsk) {
+      const pa = window.__NEXUS.pendingAsk;
+      window.__NEXUS.pendingAsk = null;
+      setTimeout(function () { send(pa.text, pa.opts); }, 260);
+    }
 
     const paint = () => {
       countUp(wrap.querySelector("#kRev"), sel.todayRevenue(), ksh);
@@ -947,7 +977,13 @@
     };
     paint();
     const off = on((kind) => { if (kind === "order" || kind === "tick" || kind === "settings") requestAnimationFrame(paint); });
-    return { el: wrap, destroy: off };
+    return {
+      el: wrap,
+      destroy: function () {
+        off();
+        if (window.__NEXUS) { window.__NEXUS.send = null; window.__NEXUS.consoleReady = false; window.__NEXUS.setHint = null; }
+      },
+    };
   }
   function kpiHtml(label, id) {
     return '<div class="panel kpi"><div class="kpi-label">' + label + '</div><div class="kpi-val" id="' + id + '">0</div></div>';
@@ -1212,6 +1248,22 @@
 
   function boot() {
     window.__nexusBoot = Date.now();
+    /* bridge for the voice layer (voice.js) — same AI engine, memory & permissions */
+    window.__NEXUS = {
+      send: null,
+      consoleReady: false,
+      setHint: null,
+      pendingConfirm: null,
+      navigate: function (id) {
+        const ok = NAV.some(function (n) { return n.id === id; });
+        if (ok) setRoute(id);
+        return ok;
+      },
+      routes: function () { return NAV.filter(function (n) { return n.id; }).map(function (n) { return n.id; }); },
+      currentRoute: function () { return route; },
+      memoryOn: function () { return !(S.memory && S.memory.commands === false); },
+      toast: toast,
+    };
     buildShell();
     setRoute("command");
     updateSimChrome();

@@ -1,6 +1,7 @@
 /* ============================================================
    NEXUS//OS — vanilla DOM utilities, icons, charts, toasts
    ============================================================ */
+import { voice } from "./voice";
 
 export function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -74,6 +75,7 @@ const P: Record<string, string> = {
   book: "M4 19.5A2.5 2.5 0 016.5 17H20V2H6.5A2.5 2.5 0 004 4.5v15A2.5 2.5 0 006.5 22H20v-2.5",
   bell: "M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0",
   sndOn: "M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13",
+  mic: "M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3zM19 10v1a7 7 0 01-14 0v-1M12 18v4M8 22h8",
   sndOff: "M11 5L6 9H2v6h4l5 4V5zM22 9l-6 6m0-6l6 6",
   x: "M18 6L6 18M6 6l12 12",
   check: "M20 6L9 17l-5-5",
@@ -138,6 +140,7 @@ export function flash(label = "SALE CONFIRMED") {
 
 /* ---------------- modal ---------------- */
 export function modal(opts: { title: string; bodyHtml: string; confirmLabel?: string; cancelLabel?: string; tone?: "acc" | "danger"; wide?: boolean }): Promise<boolean> {
+  /* lazy import avoided: voice never statically imports ui, so this is safe */
   return new Promise((resolve) => {
     const root = html("div", "", "");
     root.id = "modalRoot";
@@ -155,9 +158,12 @@ export function modal(opts: { title: string; bodyHtml: string; confirmLabel?: st
         </div>
       </div>`;
     const done = (v: boolean) => {
+      voice.clearConfirm(done);
       root.remove();
       resolve(v);
     };
+    /* let the voice layer approve/deny this exact dialog ("yes" / "no") */
+    voice.registerConfirm(() => opts.title, done);
     root.querySelector("[data-close]")!.addEventListener("click", () => done(false));
     root.querySelector("[data-no]")!.addEventListener("click", () => done(false));
     root.querySelector("[data-yes]")!.addEventListener("click", () => done(true));

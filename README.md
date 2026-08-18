@@ -104,7 +104,9 @@ nexus-os/
 
 ## First 60 seconds
 
-1. **Click anywhere once** — browsers block audio until you interact. This unlocks the sound engine.
+1. **Click anywhere once** — browsers block audio until you interact. This unlocks the sound engine **and the voice layer**.
+   Then try the voice dock (bottom-right): press **🎙 TALK** and say *"how much did I sell today"* — or start a full
+   **● CONVERSATION** and just talk. Say *"what is a webhook?"* for beginner mode. Gear icon → tests, mic selection, wake word ("Jarvis").
 2. Wait ~18 seconds — the **live simulator** drops a sale: cash-register sound + green screen flash + toast + notification bell.
 3. Or force events: **Automations → Webhook simulator**:
    - `SIMULATE NEW ORDER` → full loop: webhook → DB → sound/flash → audit

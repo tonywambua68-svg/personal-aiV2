@@ -290,9 +290,44 @@ input::placeholder { color: var(--txt-3); }
 @media (max-width: 1080px) {
   .kpi-val { font-size: 21px; }
 }
+/* ---------- voice dock ---------- */
+#voiceDock {
+  position: fixed; right: 18px; bottom: 18px; z-index: 70;
+  width: 262px; padding: 13px 14px 12px;
+  background: linear-gradient(180deg, #1d1d20, #171719);
+  border: 1px solid var(--line-2); border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,255,136,0.05);
+  animation: revealUp 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+#voiceDock .vd-top { display: flex; align-items: center; gap: 9px; }
+#voiceDock .vd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--acc); flex: none; }
+#voiceDock .vd-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; }
+#voiceDock .vd-x {
+  margin-left: auto; background: none; border: none; color: var(--txt-3);
+  cursor: pointer; padding: 3px; border-radius: 5px; display: grid; place-items: center; transition: all 0.14s;
+}
+#voiceDock .vd-x:hover { color: var(--acc); background: rgba(0,255,136,0.08); }
+#voiceDock .vd-sub {
+  font-size: 10px; color: var(--txt-2); margin-top: 7px; min-height: 13px;
+  letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#voiceDock .vd-actions { display: flex; gap: 8px; margin-top: 9px; }
+#voiceDock .vd-actions .btn { flex: 1; justify-content: center; padding: 7px 8px; font-size: 10.5px; }
+#voiceDock .vd-actions .btn.on { background: rgba(0,255,136,0.14); border-color: rgba(0,255,136,0.55); color: var(--acc); }
+#voiceDock .vd-bars { display: flex; align-items: flex-end; gap: 2.5px; height: 15px; margin-left: 2px; }
+#voiceDock .vd-bars i { width: 3px; height: 4px; border-radius: 2px; background: var(--acc); opacity: 0.35; transition: height 0.12s ease, opacity 0.12s ease; }
+#voiceDock .vd-bars.live i { opacity: 1; animation: vdBar 0.9s ease-in-out infinite; }
+#voiceDock .vd-bars.live i:nth-child(1) { animation-delay: 0s; }
+#voiceDock .vd-bars.live i:nth-child(2) { animation-delay: 0.15s; }
+#voiceDock .vd-bars.live i:nth-child(3) { animation-delay: 0.3s; }
+#voiceDock .vd-bars.live i:nth-child(4) { animation-delay: 0.45s; }
+#voiceDock .vd-bars.live i:nth-child(5) { animation-delay: 0.6s; }
+@keyframes vdBar { 0%, 100% { height: 4px; } 35% { height: 14px; } 60% { height: 8px; } }
+
 .hamb { display: none; }
 
 @media (max-width: 860px) {
+  #voiceDock { width: calc(100vw - 24px); right: 12px; bottom: 12px; }
   #archRow { grid-template-columns: 1fr !important; }
   #archRow .node-arr { transform: rotate(90deg); padding: 2px 0; }
   #sidebar { transform: translateX(-100%); position: fixed !important; z-index: 60; box-shadow: 20px 0 60px rgba(0,0,0,0.5); }

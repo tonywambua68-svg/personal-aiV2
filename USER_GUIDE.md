@@ -311,10 +311,75 @@ Backup project folder  →  copy new files  →  npm install (if package.json ch
 
 ---
 
+## PART 14 — VOICE CONVERSATION (talk to your AI)
+
+Your AI now has a full voice layer — **same brain, same memory, same data, same approval gates** as text. Nothing was rebuilt; voice is an additional interface.
+
+### How it works (architecture)
+```
+MICROPHONE → browser speech engine (real-time streaming, no file uploads)
+           → intent engine / AI brain (the exact same one as typed chat)
+           → natural text-to-speech → YOUR SPEAKERS
+```
+- **Cost: $0** — it uses the speech engine built into Chrome/Edge.
+- **Privacy: audio is never recorded or stored.** Only transcripts enter chat history, following your existing memory settings.
+- **Upgrade path:** in Phase 2 the Express backend can swap in OpenAI Realtime (`VOICE_API_KEY` in `.env`) for cloud-grade latency — the key stays server-side, never in the browser.
+
+### Use it
+1. Start the AI (`start-ai.bat`) and click the page once (unlocks audio).
+2. Bottom-right you'll see the **voice dock**: `🎙 VOICE READY`.
+3. **TALK** — press, speak one question, get a spoken + written answer.
+   Or press **● CONVERSATION** — the AI says "I'm listening", you talk, it answers, then listens again automatically (like a real assistant). Say **"stop"** or **"goodbye"** to end.
+4. In the Command Center, the **🎙 TALK** button next to the input does the same.
+5. Status states: `🎙 READY` → `🎙 LISTENING…` → `🧠 THINKING…` → `🔊 SPEAKING…`. Errors show `⚠ MIC ERROR` with the exact fix.
+
+### What you can say
+Everything you can type — it routes through the same tools:
+- *"How much did I sell today?"* · *"How much profit did I make?"* · *"Do I have new orders?"*
+- *"Which product is selling fastest?"* · *"Which products are low in stock?"*
+- *"How is my website performing?"* · *"How are my social media doing?"*
+- *"What should I work on today?"* · *"Give me my daily report"*
+- **Navigation:** *"Open inventory"*, *"Show me orders"*, *"Open my freelancing tasks"*, *"Open system health"*
+- **Learning:** *"Teach me how APIs work"* → then *"Give me an example"* → *"Test me"*
+- **Context memory:** ask *"How much did I sell today?"* then just say *"What about yesterday?"* — the AI knows you mean sales.
+
+### Wake word ("Jarvis")
+Gear icon on the dock → **Voice Settings** → turn **Wake word** ON (default word: `jarvis`, editable).
+Then say: *"Jarvis, how many orders today?"* — it wakes and answers.
+**When OFF, the microphone is completely idle — nothing is recorded.**
+
+### Interrupting
+While the AI is speaking, just start talking — it **stops mid-sentence** and listens to you.
+
+### Voice confirmations (same safety as clicking)
+Financial actions still require approval. When the AI asks *"Do you want me to proceed?"* you can say:
+**"Yes" / "Do it" / "Go ahead"** — or — **"No" / "Cancel" / "Don't do it"**. Both are logged to the audit trail.
+
+### Windows microphone setup (if it doesn't work)
+1. Windows **Settings → Privacy & security → Microphone**
+2. Turn ON **"Microphone access"** and **"Let desktop apps access your microphone"**
+3. In Chrome/Edge, click the 🔒 icon in the address bar → **Microphone → Allow**
+4. Reload the page. If you have several mics, pick yours in Voice Settings.
+
+### Voice test page
+Voice Settings → **TEST MICROPHONE** (live input level bar) · **TEST SPEAKER** · **TEST RECOGNITION** · **TEST FULL CONVERSATION** (say "hello" → AI answers → checklist ✓✓✓✓).
+
+### Cost controls (in Voice Settings)
+Voice mode ON/OFF · continuous conversation ON/OFF · max conversation length (1–30 min) · wake word ON/OFF.
+The dock tells you the engine is free; cloud realtime voice is the only metered option and is OFF by default.
+
+### Fallbacks (nothing ever breaks)
+- Mic fails → clear error + fix instructions; **text mode keeps working 100%**.
+- TTS fails → you still get the written answer.
+- Non-Chrome browser → dock says `UNSUPPORTED`; everything else works.
+
+---
+
 ## CHEAT SHEET
 
 ```
 START ........ double-click  start-ai.bat
+TALK ......... click 🎙 TALK in the dock, or say "Jarvis" (if wake word is ON)
 OPEN ......... http://localhost:8080
 SOUND ........ click page once after loading
 TEST ......... System Health → Run system test

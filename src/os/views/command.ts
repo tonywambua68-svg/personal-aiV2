@@ -3,6 +3,7 @@
    ============================================================ */
 import { sel, store } from "../store";
 import { ask, greetingHtml } from "../brain";
+import { voice } from "../voice";
 import { areaChart, countUp, esc, h, html, icon, ksh, modal, timeAgo } from "../ui";
 import { sfx } from "../sound";
 
@@ -133,10 +134,10 @@ export function renderCommand(): View {
     timers.push(iv);
   }
 
-  function send(text: string) {
+  function send(text: string, opts?: { voice?: boolean }) {
     const t = text.trim();
     if (!t) return;
-    addMsg("user", esc(t));
+    addMsg("user", (opts && opts.voice ? `<span title="voice input" style="color:var(--acc);margin-right:6px">${icon("mic", 12)}</span>` : "") + esc(t));
     input.value = "";
     const typing = html("div", "msg ai", aiAva + `<div class="bubble typing"><span></span><span></span><span></span></div>`);
     msgs.appendChild(typing);
@@ -146,10 +147,13 @@ export function renderCommand(): View {
     const t0 = window.setTimeout(() => {
       typing.remove();
       const bubble = addMsg("ai", "");
-      revealBlocks(bubble, reply.html, () => {
+      const spoken =
+        opts && opts.voice ? `<span title="spoken reply" style="color:var(--info)">${icon("sndOn", 13)}</span>` : "";
+      revealBlocks(bubble, spoken + reply.html, () => {
         if (reply.sound === "ding") sfx.ding();
         if (reply.sound === "cash") sfx.cash();
         if (reply.approval) attachApproval(bubble, reply.approval);
+        if (opts && opts.voice) voice.onReplyRendered(reply.html);
       });
     }, wait);
     timers.push(t0);
@@ -209,6 +213,10 @@ export function renderCommand(): View {
   input.id = "cmdInput";
   input.style.cssText = "flex:1";
   input.setAttribute("autocomplete", "off");
+  const micBtn = h("button", "btn", "Talk");
+  micBtn.innerHTML = icon("mic", 14) + " Talk";
+  micBtn.title = "Talk to the AI (voice)";
+  micBtn.addEventListener("click", () => voice.tapMic());
   const sendBtn = h("button", "btn btn-acc", "Send");
   sendBtn.innerHTML = icon("send", 14) + " Run";
   sendBtn.addEventListener("click", () => send(input.value));
@@ -218,7 +226,11 @@ export function renderCommand(): View {
   const inputRow = h("div", "flex gap-2");
   inputRow.style.padding = "0 16px 16px";
   inputRow.appendChild(input);
+  inputRow.appendChild(micBtn);
   inputRow.appendChild(sendBtn);
+
+  /* voice layer drives this exact console — same AI, memory & audit */
+  voice.attachConsole((t, o) => send(t, o));
 
   consoleEl.appendChild(msgs);
   consoleEl.appendChild(chips);
@@ -354,6 +366,7 @@ export function renderCommand(): View {
         window.clearTimeout(t);
       });
       unsubs.forEach((u) => u());
+      voice.detachConsole();
     },
   };
 }
