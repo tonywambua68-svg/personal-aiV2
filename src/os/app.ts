@@ -186,6 +186,11 @@ export function boot(root: HTMLElement) {
   liveWrap.innerHTML = `<span style="display:flex;align-items:center;gap:7px"><span class="live-dot" id="topDot"></span><span class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--txt-2)">LIVE</span></span>`;
   liveWrap.appendChild(simBtn);
   liveWrap.appendChild(clock);
+  const talkBtn = h("button", "btn btn-sm", "");
+  talkBtn.innerHTML = icon("mic", 14) + " Talk";
+  talkBtn.title = "Talk to the AI (voice)";
+  talkBtn.addEventListener("click", () => voice.tapMic());
+  liveWrap.appendChild(talkBtn);
   liveWrap.appendChild(sndBtn);
   liveWrap.appendChild(bellHost);
 

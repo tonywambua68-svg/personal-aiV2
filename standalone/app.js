@@ -780,6 +780,7 @@
       '<div class="font-display" id="crumb" style="font-weight:600;font-size:14px;letter-spacing:0.05em"></div>' +
       '<div style="margin-left:auto;display:flex;align-items:center;gap:9px">' +
       '<span class="mono" id="clock" style="font-size:12px;color:var(--txt-2)"></span>' +
+      '<button class="btn btn-sm" id="voiceTopBtn" title="Talk to the AI (voice)">' + icon("mic", 14) + " TALK</button>" +
       '<button class="btn btn-sm" id="muteBtn" title="Toggle sound (M)"></button>' +
       '<button class="btn btn-sm bell-btn" id="bellBtn" title="Notifications">' + icon("bell", 15) + '<span class="bell-count" id="bellCount" style="display:none">0</span></button>' +
       "</div></header>" +
@@ -799,6 +800,10 @@
     });
 
     document.getElementById("menuBtn").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
+    document.getElementById("voiceTopBtn").addEventListener("click", function () {
+      if (window.NexusVoice) window.NexusVoice.tapMic();
+      else toast("Voice layer not loaded — make sure voice.js is in your standalone folder and hard-refresh (Ctrl+Shift+R).", "warn");
+    });
     document.getElementById("muteBtn").addEventListener("click", toggleMute);
     document.getElementById("bellBtn").addEventListener("click", openBell);
     paintMute();
