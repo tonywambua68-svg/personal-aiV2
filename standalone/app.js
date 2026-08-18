@@ -582,6 +582,10 @@
           D([["Guardrails", "Financial/destructive actions always open an approval modal first — I never act alone."]]),
       };
     }
+    /* ---- agent layer first: tasks, goals, memory, briefing, computer control ---- */
+    const agentRes = window.NexusAgent ? window.NexusAgent.handle(q) : null;
+    if (agentRes) return agentRes;
+
     /* ---- beginner mode: "what is X?" / "explain X" ---- */
     const EX = /(what is|what's|whats|explain|define|meaning of|teach me about)\s+(?:a |an |the )?([a-z .\/-]+)/i.exec(q);
     if (EX) {
@@ -750,10 +754,14 @@
   const NAV = [
     { sec: "Operate" },
     { id: "command", label: "Command Center", icon: "pulse" },
+    { id: "dashboard", label: "My Dashboard", icon: "eye" },
     { id: "inventory", label: "Inventory", icon: "box" },
     { id: "orders", label: "Orders", icon: "cart" },
     { id: "finance", label: "Finance", icon: "coins" },
     { id: "freelance", label: "Freelance CRM", icon: "brief" },
+    { sec: "Personal" },
+    { id: "tasks", label: "Tasks & Goals", icon: "check" },
+    { id: "knowledge", label: "Knowledge & Memory", icon: "doc" },
     { sec: "System" },
     { id: "automations", label: "Automations", icon: "zap" },
     { id: "health", label: "System Health", icon: "pulse" },
@@ -950,6 +958,11 @@
     if (window.__NEXUS) {
       window.__NEXUS.send = send;
       window.__NEXUS.consoleReady = true;
+      /* agent layer posts async results (web search, bridge replies) here */
+      window.__NEXUS.appendAI = function (html) {
+        bubble("ai", html);
+        Sound.ding();
+      };
       const hintEl = wrap.querySelector("#cmdVoiceHint");
       window.__NEXUS.setHint = function (txt, tone) {
         if (!hintEl) return;
@@ -986,7 +999,7 @@
       el: wrap,
       destroy: function () {
         off();
-        if (window.__NEXUS) { window.__NEXUS.send = null; window.__NEXUS.consoleReady = false; window.__NEXUS.setHint = null; }
+        if (window.__NEXUS) { window.__NEXUS.send = null; window.__NEXUS.consoleReady = false; window.__NEXUS.setHint = null; window.__NEXUS.appendAI = null; }
       },
     };
   }
@@ -1268,6 +1281,10 @@
       currentRoute: function () { return route; },
       memoryOn: function () { return !(S.memory && S.memory.commands === false); },
       toast: toast,
+      /* agent layer (agent.js) — same data, audit & permissions */
+      helpers: { esc: esc, ksh: ksh, num: num, icon: icon, toast: toast, modal: modal, timeAgo: timeAgo, hhmm: hhmm },
+      S: S, save: save, emit: emit, addAudit: addAudit, addNotice: addNotice, sel: sel, on: on,
+      appendAI: null,
     };
     buildShell();
     setRoute("command");
