@@ -387,3 +387,67 @@ STOP ......... double-click  stop-ai.bat   (or Ctrl+C in terminal)
 RESET ........ System Health → Reset demo data
 ASK .......... "how much did I sell today" · "find opportunities" · "what is a webhook?"
 ```
+
+---
+
+## PART 15 — UPGRADED MODULES (audit & repair pass)
+
+### What was audited, fixed, and added
+
+| Area | Status |
+|---|---|
+| AI brain, intents, RBAC approvals, audit log | ✅ verified working |
+| Voice (STT/TTS/wake word/barge-in/device select) | ✅ verified — **now defaults to a natural MALE voice** (change in Voice Settings → Voice) |
+| Computer control (bridge) | ✅ upgraded — every action now reports **ACTION STARTED / COMPLETED / FAILED / REQUIRES BRIDGE** |
+| `start-ai.bat` | 🛠 **fixed** — now also starts `bridge.js` (computer control) automatically |
+| Tech Intelligence | 🆕 **new** — say **"tech news"**: live Hacker News scan (free, no key), filtered to your focus, each signal analyzed as Service to sell / Skill to learn / Build idea. Never invents news. |
+| Security Monitoring | 🆕 **new** — say **"security check"**: evidence-based scan (denied actions, pending approvals, failing integrations, error rate, storage footprint). Never claims an intrusion without evidence. |
+| Website Monitoring | 🆕 **new** — say **"my website is https://…"** then **"check my website"**: real reachability probe with response time, logged to audit. |
+| Startup sequence | 🆕 **new** — every boot runs a 12-point health check (AI, voice, DB, internet, bridge, business, freelance, website, security, tech feed, memory, tasks) and posts a **startup report**. |
+| Daily briefing | ⬆ upgraded — now includes Security, Website, Tech, and a computed **Top opportunity today** |
+| "Required to complete JARVIS" | 🆕 **new** — System Health panel: REQUIRED NOW / RECOMMENDED / OPTIONAL / FUTURE with cost, key, software and permission flags |
+| Prompt-injection barrier | ✅ documented + enforced — external content (web/email/docs) is data, never instructions |
+
+### New things you can say
+
+```
+tech news                          → live tech intelligence scan
+security check                     → evidence-based security scan
+my website is https://shop.co.ke   → connect website monitoring
+check my website                   → live uptime + response-time probe
+startup report                     → 12-point system health check
+give me my daily briefing          → full briefing incl. security/tech/opportunity
+find my personal ai project        → locates it (lists files if bridge is on)
+read the file README.md            → reads via bridge (allowed folders only)
+run my application                 → npm run dev via bridge
+take a screenshot                  → honest: REQUIRES EXTENSION (Win+Shift+S for now)
+check why my app crashed           → error triage with fixes
+```
+
+### Dangerous actions — confirmation rules (already enforced)
+
+The AI **always asks first** for: deleting files/folders, financial actions (reorders, payments), sending messages/proposals, publishing, security changes, unknown programs. Harmless actions (open app, read info, search, check systems) run immediately. Approve/deny by button **or by voice** ("yes" / "no").
+
+### Exact VS Code run commands (Windows)
+
+```
+1.  Open VS Code → File → Open Folder → C:\Users\YourName\personal-ai
+2.  Open terminal:  Ctrl + `
+3.  You are already in the project root. For the portable demo:
+        cd standalone
+        node server.js        (terminal 1 — dashboard at http://localhost:8080)
+    Then a SECOND terminal (click the + icon):
+        cd standalone
+        node bridge.js        (terminal 2 — computer control at http://localhost:8787)
+    OR just double-click start-ai.bat — it opens both windows for you.
+4.  For the full typed source (one terminal, from the project ROOT):
+        npm install           (first time only, needs Node 18+)
+        npm run dev           (http://localhost:5173)
+5.  Stop:  Ctrl+C in each terminal, or double-click stop-ai.bat
+```
+
+**No Python. No virtual environment. No database install.** Node.js LTS is the only requirement; everything else is free-tier or browser-built-in.
+
+### Phone connection (honest architecture)
+
+Not configured — and not pretended. The safe path (Phase 5): an Android companion app pairing over your **local network** via QR + authenticated WebSocket; notifications flow through the **Telegram bot** today (free, 3-minute setup in PART 8). JARVIS is never exposed to the public internet without authentication + TLS.

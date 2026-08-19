@@ -91,8 +91,18 @@
     if (!voices.length) return null;
     var v = voices.find(function (x) { return x.voiceURI === cfg.voiceURI; });
     if (v) return v;
-    // prefer natural/neural English voices
-    var prefs = [/google us english/i, /natural/i, /aria|jenny|libby|ryan|sonia/i, /microsoft/i, /en[-_]us/i, /en[-_]gb/i, /^en/i];
+    /* default preference: natural MALE English voice (changeable in Voice Settings → Voice) */
+    var prefs = [
+      /microsoft (david|mark|ryan|george|james|guy|davis|jason)/i,
+      /\b(david|mark|ryan|george|james|daniel|arthur|sonny|guy|davis)\b/i,
+      /google uk english male/i,
+      /\bmale\b/i,
+      /natural/i,
+      /microsoft/i,
+      /en[-_]gb/i,
+      /en[-_]us/i,
+      /^en/i,
+    ];
     for (var i = 0; i < prefs.length; i++) {
       var m = voices.filter(function (x) { return prefs[i].test(x.name) || prefs[i].test(x.lang); });
       if (m.length) return m[0];

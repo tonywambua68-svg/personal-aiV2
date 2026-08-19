@@ -728,7 +728,70 @@
     const resetBtn = html("button", "btn btn-danger", icon("refresh", 13) + " Reset demo data");
     btnRow.append(runBtn, auditBtn, resetBtn);
     main.querySelector(".panel-b").appendChild(btnRow);
-    root.append(main, stats, logs, ops);
+
+    /* ---- Security + Website monitor (live agent modules) ---- */
+    var secWrap = document.createElement("div");
+    secWrap.className = "panel";
+    secWrap.innerHTML =
+      '<div class="panel-h"><span style="color:var(--warn)">' + icon("shield", 15) + '</span><span class="t">Security & website monitoring</span>' +
+      '<span class="badge mut" style="margin-left:auto">evidence-based · never claims an intrusion without proof</span></div>' +
+      '<div class="panel-b">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
+      '<button class="btn btn-sm" id="secScan">' + icon("shield", 12) + " Run security scan</button>" +
+      '<button class="btn btn-sm" id="siteCheck">' + icon("radio", 12) + " Check my website</button>" +
+      '<button class="btn btn-sm" id="startupRep">' + icon("refresh", 12) + " Startup report</button></div>" +
+      '<div id="secOut" style="font-size:13px;line-height:1.6"></div>' +
+      '<div class="mono" style="font-size:10.5px;color:var(--txt-3);margin-top:8px">Website not configured? In the console say: “my website is https://yourshop.co.ke”</div>' +
+      "</div>";
+    secWrap.querySelector("#secScan").addEventListener("click", function () {
+      var out = secWrap.querySelector("#secOut");
+      out.innerHTML = window.NexusAgent ? window.NexusAgent.securityReport() : "<i>Agent loading…</i>";
+      Sound.ding();
+    });
+    secWrap.querySelector("#siteCheck").addEventListener("click", function () {
+      var out = secWrap.querySelector("#secOut");
+      out.innerHTML = "Probing…";
+      if (window.NexusAgent) window.NexusAgent.checkSiteNow(function (html) { out.innerHTML = html; Sound.ding(); });
+    });
+    secWrap.querySelector("#startupRep").addEventListener("click", function () {
+      if (window.NexusAgent) window.NexusAgent.startupReport();
+      toast("Startup report posted to the Command Center console.", "info");
+    });
+
+    /* ---- REQUIRED TO COMPLETE JARVIS ---- */
+    function reqRow(name, why, where, flags) {
+      return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-bottom:1px dashed rgba(255,255,255,0.06)">' +
+        '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px">' + name + '</div>' +
+        '<div style="font-size:12px;color:var(--txt-2);margin-top:2px;line-height:1.55">' + why + '</div>' +
+        '<div class="mono" style="font-size:10.5px;color:var(--txt-3);margin-top:3px">Get it: ' + where + "</div></div>" +
+        '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px">' + flags + "</div></div>";
+    }
+    function flag(t, kind) { return '<span class="badge ' + kind + '">' + t + "</span>"; }
+    var reqPanel = document.createElement("div");
+    reqPanel.className = "panel";
+    reqPanel.innerHTML =
+      '<div class="panel-h"><span style="color:var(--acc)">' + icon("hex", 15) + '</span><span class="t">Required to complete JARVIS</span>' +
+      '<span class="badge ok" style="margin-left:auto">honest registry — nothing is pretended</span></div>' +
+      '<div class="panel-b" style="padding:8px 16px">' +
+      '<div class="mono" style="font-size:10px;letter-spacing:0.16em;color:var(--acc);padding:8px 0 2px">REQUIRED NOW — all free</div>' +
+      reqRow("Chrome or Edge", "Voice input/output (browser speech engine). Text mode works everywhere.", "chrome.com / built into Windows", flag("SOFTWARE", "mut") + flag("FREE", "ok")) +
+      reqRow("Node.js 18+ (LTS)", "Runs the server and the computer-control bridge.", "nodejs.org → LTS button", flag("SOFTWARE", "mut") + flag("FREE", "ok")) +
+      reqRow("Bridge running (node bridge.js)", "Real computer control: apps, files, safe terminal. start-ai.bat starts it for you.", "standalone folder", flag("LOCAL", "info")) +
+      '<div class="mono" style="font-size:10px;letter-spacing:0.16em;color:var(--info);padding:12px 0 2px">RECOMMENDED — free tiers</div>' +
+      reqRow("Telegram bot token + chat ID", "Phone notifications: orders, low stock, daily profit, security alerts.", "Telegram → @BotFather → /newbot · @userinfobot for ID → into .env", flag("API KEY", "warn") + flag("FREE", "ok") + flag("PHONE", "vio")) +
+      reqRow("Your website URL", "Uptime + response-time monitoring (already works: “my website is https://…”).", "Say it in the console", flag("WEBSITE", "info") + flag("FREE", "ok")) +
+      reqRow("Supabase project", "Durable PostgreSQL instead of browser storage (same schema, free 500 MB).", "supabase.com → New project → Settings → API → into .env", flag("API KEY", "warn") + flag("FREE", "ok")) +
+      '<div class="mono" style="font-size:10px;letter-spacing:0.16em;color:var(--txt-3);padding:12px 0 2px">OPTIONAL</div>' +
+      reqRow("WooCommerce REST keys", "REAL orders/stock streaming instead of the demo simulator.", "WP admin → WooCommerce → Settings → Advanced → REST API (Read)", flag("API KEY", "warn") + flag("FREE", "ok") + flag("WEBSITE", "info")) +
+      reqRow("OpenAI API key (gpt-4o-mini)", "Cloud AI brain with tool-calling over live data (fractions of a cent per query).", "platform.openai.com/api-keys → into .env (backend only)", flag("API KEY", "warn") + flag("PAID ~$0.15/1M tok", "danger")) +
+      reqRow("WordPress application password", "Pages, forms (Fluent Forms), Rank Math SEO data.", "WP → Users → Profile → Application Passwords", flag("API KEY", "warn") + flag("FREE", "ok") + flag("WEBSITE", "info")) +
+      '<div class="mono" style="font-size:10px;letter-spacing:0.16em;color:var(--txt-3);padding:12px 0 2px">FUTURE</div>' +
+      reqRow("ngrok (dev) or $5 VPS (prod)", "Public webhook endpoint so your online store can reach the AI 24/7.", "ngrok.com (free) · Hetzner/Contabo ($5/mo)", flag("SOFTWARE", "mut") + flag("$0 → $5/mo", "warn")) +
+      reqRow("Meta / TikTok / GA4 tokens", "Social + traffic analytics with live attribution.", "developers.facebook.com · business-api.tiktok.com · GA4 Data API", flag("API KEY", "warn") + flag("FREE", "ok")) +
+      reqRow("Phone companion (Android)", "Two-way phone control: commands, tasks, alerts, optional mic.", "Phase 5 — local-network pairing over authenticated WebSocket", flag("BUILD", "vio") + flag("LATER", "mut")) +
+      "</div>";
+
+    root.append(main, stats, secWrap, reqPanel, logs, ops);
 
     runBtn.addEventListener("click", function () {
       runBtn.disabled = true;

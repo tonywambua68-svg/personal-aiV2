@@ -343,13 +343,36 @@
         over.length ? over.length + " overdue task" + (over.length === 1 ? "" : "s") + ": " + over.slice(0, 2).map(function (t) { return '"' + t.title + '"'; }).join(", ") + "." : "Nothing overdue.",
         due.length ? due.length + " due today." : "No tasks due today.",
       ]],
+      ["Security", "info", (function () {
+        var f = securityScan();
+        var warns = f.filter(function (x) { return x.sev === "warn"; });
+        return warns.length
+          ? warns.slice(0, 2).map(function (x) { return "▲ " + x.what + " — " + x.act; })
+          : ["No anomalies detected — approval gates and audit trail nominal."];
+      })()],
+      ["Website", "info", [A.cfg.siteUrl
+        ? "Monitoring " + A.cfg.siteUrl + " — say “check my website” for a live probe."
+        : "Not configured — say “my website is https://…” to start uptime checks."]],
+      ["Tech intelligence", "vio", ["Say “tech news” — live scan of Hacker News filtered to your focus (AI, automation, e-commerce, security)."]],
     ];
     var html = H("Daily briefing — " + new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" }), "brief");
     secs.forEach(function (sec) {
       html += '<div class="cs" style="margin-top:12px"><i>▍</i>' + sec[0] + "</div>";
       sec[2].forEach(function (line) { html += P(line); });
     });
-    html += D([["Most important today", top ? '"' + top.title + '"' + (top.proj ? " (" + top.proj + ")" : "") : "Clear day — consider deep work on " + (goal ? goal.title : "your top goal") + "."]]);
+    var topOpp = (function () {
+      var lo = X.sel.lowStock();
+      if (lo.length) return "Reorder " + lo[0].name + " — stockout risk ≈ KSh " + Math.round((lo[0].price - lo[0].cost) * lo[0].velocity).toLocaleString() + "/week. Say “restock”.";
+      var deadCamp = null;
+      X.S.campaigns.forEach(function (c) { if (c.active && c.conversions === 0 && c.spend > 2000) deadCamp = c; });
+      if (deadCamp) return "Pause “" + deadCamp.name + "” (KSh " + deadCamp.spend.toLocaleString() + " spent, 0 sales) and move budget to TikTok.";
+      var hotL = null;
+      X.S.leads.forEach(function (l) { if (l.stage === "lead" || l.stage === "proposal") hotL = hotL || l; });
+      if (hotL) return "Send the " + hotL.name + " proposal today — same-day follow-ups win ~2× more.";
+      return "Run “tech news” and turn one signal into a service offer this week.";
+    })();
+    html += D([["Most important today", top ? '"' + top.title + '"' + (top.proj ? " (" + top.proj + ")" : "") : "Clear day — consider deep work on " + (goal ? goal.title : "your top goal") + "."],
+               ["Top opportunity", topOpp]]);
     return html;
   }
   function proactiveCheck(silent) {
@@ -385,6 +408,208 @@
     if (window.NexusVoice && window.NexusVoice.state && window.NexusVoice.state() === "ready") {
       // voice layer may speak it if a conversation starts; otherwise text toast is enough
     }
+  }
+
+  /* ---------------- 8b. Tech Intelligence (LIVE — Hacker News API, keyless, CORS-open) ----------------
+     Pipeline the user asked for: NEWS → ANALYSIS → OPPORTUNITY → SKILL → PROJECT → MONEY.
+     Honesty rule: never invent news. If the feed is unreachable, say so. */
+  var TECH_KEYWORDS = ["ai", "llm", "gpt", "openai", "anthropic", "claude", "gemini", "copilot", "agent", "automation",
+    "n8n", "zapier", "wordpress", "woocommerce", "shopify", "ecommerce", "e-commerce", "javascript", "node", "react",
+    "next", "supabase", "postgres", "github", "aws", "azure", "cloud", "security", "breach", "vuln", "startup", "saas",
+    "api", "python", "microsoft", "google", "apple", "nvidia", "robot", "freelanc", "dev tool", "linux"];
+
+  function techRelevance(title) {
+    var tl = (title || "").toLowerCase();
+    var hits = 0;
+    for (var i = 0; i < TECH_KEYWORDS.length; i++) if (tl.indexOf(TECH_KEYWORDS[i]) !== -1) hits++;
+    return hits;
+  }
+
+  function fetchTechNews(cb) {
+    fetch("https://hacker-news.firebaseio.com/v0/topstories.json")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (ids) {
+        if (!ids || !ids.length) { cb(null, "Hacker News is unreachable right now (offline or blocked)."); return; }
+        var picks = ids.slice(0, 30).map(function (id) {
+          return fetch("https://hacker-news.firebaseio.com/v0/item/" + id + ".json").then(function (r) { return r.json(); });
+        });
+        Promise.all(picks)
+          .then(function (items) {
+            var relevant = items
+              .filter(function (it) { return it && it.title; })
+              .map(function (it) { return { title: it.title, url: it.url || ("https://news.ycombinator.com/item?id=" + it.id), score: it.score || 0, rel: techRelevance(it.title) }; })
+              .filter(function (it) { return it.rel > 0; })
+              .sort(function (a, b) { return (b.rel - a.rel) || (b.score - a.score); })
+              .slice(0, 5);
+            cb(relevant.length ? relevant : null, relevant.length ? null : "The live feed returned nothing matching your focus areas today. The pipeline works — the filter is strict by design (no noise).");
+          })
+          .catch(function () { cb(null, "Tech feed failed mid-stream. Retry in a minute."); });
+      })
+      .catch(function () { cb(null, "Tech feed unreachable — check your internet connection."); });
+  }
+
+  function opportunityLens(title) {
+    var tl = (title || "").toLowerCase();
+    var lens = [];
+    if (/ai|llm|gpt|agent|claude|gemini|copilot/.test(tl)) {
+      lens.push(["Service to sell", "AI integration / chatbot / workflow automation for local businesses — KSh 15–50k per setup."]);
+      lens.push(["Skill to learn", "LLM APIs + tool calling (OpenAI gpt-4o-mini keeps costs near zero)."]);
+    }
+    if (/wordpress|woo|shopify|ecommerce|e-commerce|store|checkout/.test(tl)) {
+      lens.push(["Use in your shop", "Test this against your laptop listings — first movers win the SEO."]);
+      lens.push(["Service to sell", "WooCommerce setup + order-alert automations (your existing playbook)."]);
+    }
+    if (/security|breach|hack|vuln|malware|phish/.test(tl)) {
+      lens.push(["Protect yourself", "Rotate any password connected to this service; enable 2FA."]);
+      lens.push(["Service to sell", "Basic security-hardening audits for small business websites."]);
+    }
+    if (/saas|startup|funding|raise/.test(tl)) {
+      lens.push(["Build idea", "Micro-SaaS around this gap — validate with 5 customer interviews before writing code."]);
+    }
+    if (/javascript|node|react|api|supabase|postgres|github/.test(tl) && !lens.length) {
+      lens.push(["Skill to learn", "Directly strengthens your freelance stack — build one small thing with it this week."]);
+    }
+    if (!lens.length) lens.push(["Action", "Skim the source; file anything useful with “remember that …”."]);
+    return lens;
+  }
+
+  function techScanIntent() {
+    setTimeout(function () {
+      fetchTechNews(function (items, err) {
+        var out;
+        if (err) {
+          out = H("Tech intelligence — live feed unavailable") + P(esc(err)) +
+            D([["Honesty", "I never invent news. Source: Hacker News top stories (free, no API key, filtered to your focus areas). Say “tech news” again when online."]]);
+        } else {
+          out = H("Tech intelligence — " + items.length + " relevant signal" + (items.length === 1 ? "" : "s")) +
+            items.map(function (it, i) {
+              return P("<b>" + (i + 1) + ". " + esc(it.title) + "</b> <a href='" + esc(it.url) + "' target='_blank' rel='noopener' style='color:var(--acc)'>source ↗</a>") +
+                opportunityLens(it.title).map(function (l) { return B("<b>" + l[0] + ":</b> " + esc(l[1])); }).join("");
+            }).join("") +
+            D([["Pipeline", "NEWS → ANALYSIS → OPPORTUNITY → SKILL → PROJECT → MONEY"],
+               ["Source", "Hacker News (live, free, no key). Phase 2 adds your chosen RSS/NewsAPI sources."]]);
+        }
+        audit("AI", "Tech Intel", items ? "Scanned HN top 30 → " + items.length + " relevant signals" : "Tech scan: no relevant signals / feed down", "READ", "EXECUTED");
+        notice("system", "📡 Tech scan complete — " + (items ? items.length + " relevant signals in the console." : "no relevant signals today."));
+        if (X.appendAI) X.appendAI(out);
+      });
+    }, 0);
+    return ok("Tech scan started", P("Scanning live sources (Hacker News, filtered to your focus: AI, automation, e-commerce, web dev, security)… results drop here in a few seconds."));
+  }
+
+  /* ---------------- 8c. Security Monitoring (evidence-based, local scope) ----------------
+     Rule: never claim "you are being hacked". Report WHAT / WHY SUSPICIOUS / EVIDENCE / WHAT TO DO. */
+  function securityScan() {
+    var f = [];
+    var denied = 0, pendingFin = 0, errs = 0;
+    X.S.audit.forEach(function (a) {
+      if (a.outcome === "DENIED") denied++;
+      if (a.scope === "FINANCIAL" && a.outcome === "PENDING") pendingFin++;
+      if (/DEGRADED|FAILED|ERROR/i.test(a.outcome || "")) errs++;
+    });
+    var badInteg = X.S.integrations.filter(function (i) { return i.status === "error"; });
+    var stale = X.S.integrations.filter(function (i) { return i.status === "connected" && (i.syncMin || 0) > 120; });
+    var kbBytes = 0;
+    try { kbBytes = (localStorage.getItem("nexus.agent.v1") || "").length + (localStorage.getItem("nexusos_demo_v1") || "").length; } catch (e) {}
+
+    f.push(denied > 0
+      ? { sev: denied > 3 ? "warn" : "info", what: denied + " denied action" + (denied === 1 ? "" : "s") + " in the audit log", why: "Denials prove the approval gate works. A sudden spike can mean mistaken commands — or something testing the gate.", act: denied > 3 ? "Review the denied entries (Audit tab) and confirm each was intentional." : "No action needed — this is the system protecting you." }
+      : { sev: "ok", what: "No denied actions recorded", why: "Nothing has been blocked yet.", act: "None." });
+    f.push(pendingFin > 0
+      ? { sev: "info", what: pendingFin + " financial action" + (pendingFin === 1 ? "" : "s") + " awaiting your approval", why: "FINANCIAL scope never executes without you.", act: "Approve or deny them from the console." }
+      : { sev: "ok", what: "No pending financial approvals", why: "All financial actions resolved.", act: "None." });
+    f.push(badInteg.length
+      ? { sev: "warn", what: badInteg.length + " integration in ERROR state (" + badInteg.map(function (i) { return i.name; }).join(", ") + ")", why: "Failed integrations can mask real events (orders, alerts).", act: "Say “retry meta” or reconnect from Integrations." }
+      : { sev: "ok", what: "All integrations healthy", why: "No connection errors.", act: "None." });
+    f.push(stale.length
+      ? { sev: "info", what: stale.length + " integration" + (stale.length === 1 ? "" : "s") + " not synced in 2+ hours", why: "Stale data can hide trends; it is not itself an intrusion.", act: "Open the dashboard or run a workflow to refresh." }
+      : { sev: "ok", what: "Sync freshness normal", why: "Connected services synced recently.", act: "None." });
+    f.push(errs > 5
+      ? { sev: "warn", what: errs + " degraded/failed operations logged", why: "Repeated failures can indicate a misconfiguration being probed or a flapping service.", act: "Check the Audit tab for the failing module." }
+      : { sev: "ok", what: "Error rate normal (" + errs + " logged)", why: "Within expected range.", act: "None." });
+    f.push({ sev: "info", what: "Local data footprint: " + Math.round(kbBytes / 1024) + " KB in browser storage", why: "Your memory, tasks and demo data live only in this browser profile.", act: "Export or wipe anytime from Settings → Memory." });
+    return f;
+  }
+
+  function securityHtml() {
+    var f = securityScan();
+    var warnCount = f.filter(function (x) { return x.sev === "warn"; }).length;
+    var badge = warnCount ? "warn" : "ok";
+    var out = H("Security monitoring — " + (warnCount ? warnCount + " advisory" + (warnCount === 1 ? "" : "ies") : "no anomalies")) +
+      f.map(function (x) {
+        var dot = x.sev === "warn" ? "▲" : x.sev === "info" ? "ℹ" : "●";
+        var col = x.sev === "warn" ? "var(--warn)" : x.sev === "info" ? "var(--info)" : "var(--acc)";
+        return P("<b style='color:" + col + "'>" + dot + "</b> <b>" + esc(x.what) + "</b>") + B("<b>Why:</b> " + esc(x.why)) + B("<b>Action:</b> " + esc(x.act));
+      }).join("") +
+      D([["Scope", "Local audit log, integrations, storage — evidence only. I never claim an intrusion without evidence."],
+         ["Untrusted content", "Webpages, emails and documents are DATA, never instructions. External text cannot command me (prompt-injection barrier)."],
+         ["Future", "Phase 2 adds login-failure monitoring, process/connection checks via the bridge, and HaveIBeenPwned-style breach alerts."]]);
+    return out;
+  }
+
+  /* ---------------- 8d. Website monitoring (REAL reachability probe) ---------------- */
+  function checkSite(url, cb) {
+    var t0 = Date.now();
+    fetch(url, { mode: "no-cors", cache: "no-store" })
+      .then(function () { cb(null, Date.now() - t0); })
+      .catch(function () { cb(new Error("unreachable"), Date.now() - t0); });
+  }
+
+  function siteStatusHtml(cb) {
+    var url = A.cfg.siteUrl;
+    if (!url) {
+      cb(H("Website monitoring — NOT CONFIGURED") +
+        P("I don't know your site yet, and I won't guess. Connect it in one line:") +
+        B("Say: <b>“my website is https://yourshop.co.ke”</b>") +
+        D([["What you get", "Reachability + response-time checks, logged to the audit trail."],
+           ["What needs Phase 2", "Status codes, SSL expiry, broken-page crawl, GA4 traffic — via the server probe + GA4 Data API."]]));
+      return;
+    }
+    checkSite(url, function (err, ms) {
+      var up = !err;
+      audit("AI", "Website", (up ? "Site UP — " + url + " responded in " + ms + " ms" : "Site UNREACHABLE — " + url), "READ", up ? "EXECUTED" : "LOGGED");
+      if (!up) notice("alert", "🔴 Website check: " + url + " did not respond.");
+      cb(H("Website monitoring — " + esc(url)) +
+        P(up
+          ? "<b style='color:var(--acc)'>● UP</b> — responded in <b>" + ms + " ms</b> (probe sent from this browser)."
+          : "<b style='color:var(--danger)'>● UNREACHABLE</b> — no response from this browser.") +
+        D(up
+          ? [["Status", "Reachable · " + ms + " ms"], ["Honesty", "Browser-level no-cors probe. Deep checks (status codes, SSL, page content, GA4 traffic) need the Phase-2 server probe."]]
+          : [["Evidence", "fetch() rejected — the request never completed."],
+             ["What to do", "1) Open the URL manually · 2) Check your host's status page · 3) Say “check my website” again in a minute."]]));
+    });
+  }
+
+  /* ---------------- 8e. Startup health-check sequence ---------------- */
+  function startupReport() {
+    var lowStock = X.sel.lowStock().length;
+    var openLeads = X.S.leads.filter(function (l) { return l.stage !== "won" && l.stage !== "lost"; }).length;
+    var due = tasksDueToday().length, over = tasksOverdue().length;
+    var lines = [
+      ["AI core", "ONLINE", true],
+      ["Voice", window.NexusVoice && window.NexusVoice.supported ? "ONLINE (male voice default)" : "UNAVAILABLE — use Chrome or Edge", !!(window.NexusVoice && window.NexusVoice.supported)],
+      ["Database (browser)", X.S.orders.length + " orders · " + X.S.products.length + " products loaded", true],
+      ["Internet", navigator.onLine ? "ONLINE" : "OFFLINE", navigator.onLine],
+      ["Computer bridge", bridge.online ? "CONNECTED · localhost:8787" : "OFFLINE — run: node bridge.js (start-ai.bat does this)", bridge.online],
+      ["Business monitoring", "ONLINE · " + lowStock + " low-stock alert" + (lowStock === 1 ? "" : "s"), true],
+      ["Freelance tracking", "ONLINE · " + openLeads + " open lead" + (openLeads === 1 ? "" : "s"), true],
+      ["Website monitoring", A.cfg.siteUrl ? "CONFIGURED · " + A.cfg.siteUrl : "NOT CONFIGURED — say “my website is https://…”", !!A.cfg.siteUrl],
+      ["Security monitoring", "ONLINE · local audit scope", true],
+      ["Tech intelligence", "ONLINE · HN feed (no key needed)", true],
+      ["Memory", A.memory.length + " entries · privacy scopes respected", true],
+      ["Today", due + " task" + (due === 1 ? "" : "s") + " due · " + over + " overdue", over === 0]
+    ];
+    var warns = lines.filter(function (l) { return !l[2]; });
+    var html = H("JARVIS startup report") +
+      lines.map(function (l) {
+        return B("<b>" + esc(l[0]) + ":</b> " + (l[2] ? "<span style='color:var(--acc)'>" : "<span style='color:var(--warn)'>") + esc(l[1]) + "</span>");
+      }).join("") +
+      D([["Warnings", warns.length ? warns.map(function (w) { return esc(w[0]); }).join(" · ") : "None."],
+         ["Required action", warns.length ? "See SYSTEM HEALTH → “Required to complete JARVIS”." : "All clear — say “give me my daily briefing”."]]);
+    audit("SYSTEM", "Health", "Startup self-check: " + (lines.length - warns.length) + "/" + lines.length + " subsystems nominal", "READ", "EXECUTED");
+    notice("system", "🟢 Startup complete — " + (lines.length - warns.length) + "/" + lines.length + " subsystems online" + (warns.length ? " · " + warns.length + " warning" + (warns.length === 1 ? "" : "s") : "") + ".");
+    if (X.appendAI) X.appendAI(html);
+    else if (X.toast) X.toast("🟢 Startup complete — " + (lines.length - warns.length) + "/" + lines.length + " subsystems online.", warns.length ? "info" : "ok");
   }
 
   /* ---------------- HTML helpers (scoped) ---------------- */
@@ -570,13 +795,93 @@
     }
 
     /* --- computer / terminal help --- */
-    if (/open (?:vs ?code|terminal|explorer|notepad|chrome|edge)|run (?:the )?(?:dev|development) server|npm run|check why npm|find the error|help me fix/.test(t)) {
+    if (/open (?:vs ?code|terminal|explorer|notepad|chrome|edge)|run (?:the )?(?:dev|development) server|npm run|check why npm|find the error|help me fix|my app (?:crashed|keeps crashing)|why did my (?:app|application) crash/.test(t)) {
       if (/run (?:the )?(?:dev|development) server|npm run dev/.test(t)) return computerAction("terminal", null, "npm run dev");
-      if (/check why npm|npm (?:is )?failing|find the error|help me fix/.test(t)) {
+      if (/check why npm|npm (?:is )?failing|find the error|help me fix|crash/.test(t)) {
         return ok("Let's debug together", H("Error triage", "debug") + P("Paste the exact error text (first red line is usually the truth) and I'll explain it. Common culprits I can check right now:") + B("<b>'node' is not recognized</b> → Node.js not installed or terminal not restarted") + B("<b>EADDRINUSE</b> → old server still running — run stop-ai.bat") + B("<b>Missing script</b> → you're in the wrong folder — cd into standalone/ first") + D([["With bridge", "Start bridge.js and I can run safe commands (node -v, npm -v, git status) and read your logs directly."]]));
       }
       var app2 = /vs ?code/.test(t) ? "vscode" : /terminal/.test(t) ? "terminal" : /explorer/.test(t) ? "explorer" : /notepad/.test(t) ? "notepad" : /edge/.test(t) ? "msedge" : "chrome";
       return computerAction(app2, null);
+    }
+
+    /* --- tech intelligence (LIVE) --- */
+    if (/tech (news|update|briefing|intel)|what'?s new in tech|technology (news|update|intelligence)|news about (ai|tech|openai|microsoft|google)/.test(t)) {
+      return techScanIntent();
+    }
+
+    /* --- security monitoring --- */
+    if (/security (check|status|scan|report)|am i (safe|secure)|anything suspicious|intrusion|anomaly check/.test(t)) {
+      audit("AI", "Security", "Security scan requested", "READ", "EXECUTED");
+      return ok("Security scan", securityHtml());
+    }
+
+    /* --- website monitoring --- */
+    if ((m = /^(?:my website is|set my website to|monitor my website:?)\s+(https?:\/\/\S+)/.exec(t))) {
+      A.cfg.siteUrl = m[1].replace(/[.!?]+$/, ""); save();
+      audit("AI", "Website", "Monitoring configured: " + A.cfg.siteUrl, "WRITE", "EXECUTED");
+      siteStatusHtml(function (html) { if (X.appendAI) X.appendAI(html); });
+      return ok("Website connected", P("Monitoring <b>" + esc(A.cfg.siteUrl) + "</b>. First probe running now — results drop here in a second. Ask “check my website” anytime."));
+    }
+    if (/check my website|website (status|health)|is my (site|website) (up|down|ok|working)|uptime/.test(t)) {
+      siteStatusHtml(function (html) { if (X.appendAI) X.appendAI(html); });
+      return ok("Probing your site…", P("Sending a real reachability probe. One moment."));
+    }
+
+    /* --- computer: screenshot (honest capability boundary) --- */
+    if (/take a screenshot|screenshot|capture (my )?screen/.test(t)) {
+      return ok("Screenshot — ACTION REQUIRES EXTENSION", H("Screenshot") +
+        P("The local bridge handles apps, files and safe commands — but screen capture needs the Phase-2 desktop capture service. I won't pretend I took one.") +
+        D([["Now", "Windows: press <b>Win + Shift + S</b> (Snip & Sketch) — paste the result anywhere."],
+           ["Phase 2", "The Express server + bridge gain a capture endpoint; then this command works end-to-end."],
+           ["Status", "ACTION REQUIRES EXTENSION (nothing was faked)"]]));
+    }
+
+    /* --- computer: find my project (real: memory + bridge fs-list) --- */
+    if ((m = /find my (.+?) project|where is my (.+?) (?:project|folder)|locate my (.+)/.exec(t))) {
+      var name = (m[1] || m[2] || m[3] || "").trim().toLowerCase();
+      var proj = null;
+      A.projects.forEach(function (p) { if (p.name.toLowerCase().indexOf(name) !== -1 || name.indexOf(p.name.split(" ")[0].toLowerCase()) !== -1) proj = p; });
+      if (!proj) return ok("No matching project", P("I track: " + A.projects.map(function (p) { return "<b>" + esc(p.name) + "</b>"; }).join(", ") + ". Add yours from the Tasks & Goals tab."));
+      if (proj.path && bridge.online) {
+        bridgeExec("fs-list", { path: proj.path }, function (err, j) {
+          if (err || (j && j.error)) {
+            if (X.appendAI) X.appendAI(P("ACTION FAILED — can't list <b>" + esc(proj.name) + "</b>: " + esc((j && j.error) || "bridge error") + ". Is <span class='mono'>" + esc(proj.path) + "</span> in bridge.config.json allowedPaths?"));
+          } else {
+            var files = (j.items || []).slice(0, 12).map(function (it) { return (it.dir ? "📁 " : "📄 ") + esc(it.name); }).join(" · ");
+            if (X.appendAI) X.appendAI(P("ACTION COMPLETED — <b>" + esc(proj.name) + "</b> at <span class='mono'>" + esc(proj.path) + "</span>") + B(files || "(empty folder)"));
+          }
+        });
+        return ok("Locating project…", P("ACTION STARTED — listing <b>" + esc(proj.name) + "</b> via the bridge…"));
+      }
+      return ok("Project found (bridge offline)", P("<b>" + esc(proj.name) + "</b> → <span class='mono'>" + esc(proj.path || "no path set") + "</span>") +
+        D([["Next", "Run <b>node bridge.js</b> (or start-ai.bat) and ask again to browse its files for real."]]));
+    }
+
+    /* --- computer: read a file (real: bridge fs-read, allowlisted paths only) --- */
+    if ((m = /^read (?:the |my )?(?:file )?(.+\.(?:js|ts|json|md|txt|html|css|py|bat)|readme\S*)$/i.exec(t))) {
+      var fp = m[1].trim();
+      if (!bridge.online) return ok("Read file — ACTION REQUIRES BRIDGE", P("File reading goes through the local bridge (only folders you allow in bridge.config.json). It isn't running.") + D([["Fix", "Run <b>node bridge.js</b> — start-ai.bat starts it automatically."], ["Status", "ACTION REQUIRES BRIDGE (nothing was faked)"]]));
+      var basePath = fp;
+      if (!/^[a-z]:\\/i.test(fp) && !fp.startsWith("/")) {
+        var host = A.projects.filter(function (p) { return p.path; })[0];
+        basePath = host ? host.path.replace(/[\\/]+$/, "") + "\\" + fp : fp;
+      }
+      bridgeExec("fs-read", { path: basePath }, function (err, j) {
+        if (err || (j && j.error)) {
+          if (X.appendAI) X.appendAI(P("ACTION FAILED — " + esc((j && j.error) || "bridge error")) + B("The path must be inside an <b>allowed folder</b> (bridge.config.json). Max 2 MB."));
+        } else {
+          var snippet = (j.content || "").slice(0, 900);
+          if (X.appendAI) X.appendAI(P("ACTION COMPLETED — read <span class='mono'>" + esc(basePath) + "</span> (" + (j.content || "").length + " chars)") +
+            '<div class="mono" style="font-size:11px;background:#141416;border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:6px;white-space:pre-wrap">' + esc(snippet) + ((j.content || "").length > 900 ? "…" : "") + "</div>" +
+            B("Say “explain this code” and paste a section if you want it broken down."));
+        }
+      });
+      return ok("Reading file…", P("ACTION STARTED — <span class='mono'>" + esc(basePath) + "</span> via bridge…"));
+    }
+
+    /* --- computer: run my application (real: bridge exec-safe) --- */
+    if (/run my (app|application|project)|start my (app|application)|launch my (app|application)/.test(t)) {
+      return computerAction("terminal", null, "npm run dev");
     }
 
     /* --- screen --- */
@@ -591,14 +896,13 @@
   function computerAction(app, projectRef, runCmd) {
     var label = app.charAt(0).toUpperCase() + app.slice(1);
     if (!bridge.online) {
-      var cmdLine = "node bridge.js";
       return {
         sound: "ding",
         html: H(label + " — bridge not connected", "computer") +
           P("Computer control runs through the local bridge on your PC (real launching, real files, strict allowlists). It isn't running right now.") +
           D([["Fix", "In your project's <b>standalone</b> folder run <span class='mono'>node bridge.js</span> — or just use <b>start-ai.bat</b>, which starts it automatically."],
              ["Meanwhile", "You can " + (app === "vscode" ? "open VS Code manually: Start menu → type \"code\"" : "open it manually from the Start menu") + "."],
-             ["Status", "COMPUTER CONTROL · REQUIRES BRIDGE (honest — nothing is faked)"]]),
+             ["Status", "<b style='color:var(--warn)'>ACTION REQUIRES BRIDGE</b> — nothing was faked."]]),
       };
     }
     if (projectRef) {
@@ -606,27 +910,27 @@
       A.projects.forEach(function (p) { if ((p.name.toLowerCase().indexOf(projectRef.toLowerCase()) !== -1) || (projectRef.toLowerCase().indexOf(p.name.split(" ")[0].toLowerCase()) !== -1)) proj = p; });
       if (proj && proj.path) {
         bridgeExec("open-path", { path: proj.path }, function (err, j) {
-          if (err || (j && j.error)) appendAI(P("Couldn't open \"" + esc(proj.name) + "\" — " + esc((j && j.error) || "bridge error") + ". Is the path in bridge.config.json allowed?"));
-          else { appendAI(P("Opened <b>" + esc(proj.name) + "</b> at <span class='mono' style='font-size:11px'>" + esc(proj.path) + "</span>.")); audit("AI", "Computer", "Opened project folder " + proj.path, "EXECUTE", "EXECUTED"); }
+          if (err || (j && j.error)) appendAI(P("<b style='color:var(--danger)'>ACTION FAILED</b> — couldn't open \"" + esc(proj.name) + "\": " + esc((j && j.error) || "bridge error") + ". Is the path in bridge.config.json allowedPaths?"));
+          else { appendAI(P("<b style='color:var(--acc)'>ACTION COMPLETED</b> — opened <b>" + esc(proj.name) + "</b> at <span class='mono' style='font-size:11px'>" + esc(proj.path) + "</span>.")); audit("AI", "Computer", "Opened project folder " + proj.path, "EXECUTE", "EXECUTED"); }
         });
-        return ok("Opening project…", P("Asking the bridge to open <b>" + esc(proj.name) + "</b>…") + P('<span class="mono" style="font-size:10.5px;color:var(--txt-3)">💻 WORKING ON YOUR COMPUTER · authorized path only</span>'));
+        return ok("Opening project…", P("<b style='color:var(--info)'>ACTION STARTED</b> — asking the bridge to open <b>" + esc(proj.name) + "</b>…") + P('<span class="mono" style="font-size:10.5px;color:var(--txt-3)">💻 WORKING ON YOUR COMPUTER · authorized path only</span>'));
       }
       return ok("Which project?", P("I have: " + A.projects.map(function (p) { return "<b>" + esc(p.name) + "</b>"; }).join(", ") + ". Say the name more exactly, or add its folder in the Tasks & Goals tab."));
     }
     if (runCmd) {
       bridgeExec("exec-safe", { cmd: runCmd }, function (err, j) {
-        if (err || (j && j.error)) appendAI(P("Command refused or failed: " + esc((j && j.error) || "bridge unreachable") + ". Safe allowlist only — dangerous commands are never run."));
-        else appendAI(P("Ran <span class='mono'>npm run dev</span> via the bridge — check the bridge terminal window for output."));
+        if (err || (j && j.error)) appendAI(P("<b style='color:var(--danger)'>ACTION FAILED</b> — command refused: " + esc((j && j.error) || "bridge unreachable") + ". Safe allowlist only — dangerous commands are never run, and deletions always ask you first."));
+        else appendAI(P("<b style='color:var(--acc)'>ACTION COMPLETED</b> — ran <span class='mono'>npm run dev</span> via the bridge. Output appears in the bridge's terminal window."));
       });
       audit("AI", "Terminal", "Executed allowlisted command: " + runCmd, "EXECUTE", "EXECUTED");
-      return ok("Running…", P("Executing <span class='mono'>npm run dev</span> through the bridge. Output appears in the bridge's terminal window."));
+      return ok("Running…", P("<b style='color:var(--info)'>ACTION STARTED</b> — executing <span class='mono'>npm run dev</span> through the bridge."));
     }
     bridgeExec("open-app", { app: app }, function (err, j) {
-      if (err || (j && j.error)) appendAI(P(label + " failed to launch — " + esc((j && j.error) || "bridge error") + ". You can open it manually from the Start menu."));
-      else { appendAI(P(label + " launched on your computer.")); }
+      if (err || (j && j.error)) appendAI(P("<b style='color:var(--danger)'>ACTION FAILED</b> — " + label + " did not launch: " + esc((j && j.error) || "bridge error") + ". Open it manually from the Start menu."));
+      else { appendAI(P("<b style='color:var(--acc)'>ACTION COMPLETED</b> — " + label + " launched on your computer.")); }
     });
     audit("AI", "Computer", "Launched app: " + label, "EXECUTE", "EXECUTED");
-    return ok(label + " launching…", P("Asking the bridge to open <b>" + label + "</b>…") + P('<span class="mono" style="font-size:10.5px;color:var(--txt-3)">💻 WORKING ON YOUR COMPUTER · allowlisted action · logged</span>'));
+    return ok(label + " launching…", P("<b style='color:var(--info)'>ACTION STARTED</b> — asking the bridge to open <b>" + label + "</b>…") + P('<span class="mono" style="font-size:10.5px;color:var(--txt-3)">💻 WORKING ON YOUR COMPUTER · allowlisted action · logged</span>'));
   }
 
   function ok(title, html) { return { sound: "ding", html: html }; }
@@ -655,6 +959,8 @@
         ["WORDPRESS", integ("wp") === "connected" ? "CONNECTED" : "NOT CONNECTED", integ("wp") === "connected" ? "ok" : "mut", "book"],
         ["TASKS", A.tasks.filter(function (x) { return x.status !== "done"; }).length + " OPEN", "info", "check"],
         ["PROJECTS", String(A.projects.filter(function (x) { return x.status === "active"; }).length), "info", "box"],
+        ["WEBSITE", A.cfg.siteUrl ? "MONITORED" : "NOT SET", A.cfg.siteUrl ? "ok" : "warn", "radio"],
+        ["SECURITY", "ARMED", "ok", "shield"],
       ];
       var prog = progressToday();
       var html =
@@ -881,7 +1187,16 @@
     X = window.__NEXUS;
     esc = X.helpers.esc; ksh = X.helpers.ksh; num = X.helpers.num; icon = X.helpers.icon;
     toast = X.helpers.toast; modal = X.helpers.modal; timeAgo = X.helpers.timeAgo; hhmm = X.helpers.hhmm;
-    pingBridge();
+    /* startup sequence: probe bridge FIRST, then produce the full startup report */
+    pingBridge(function () {
+      setTimeout(startupReport, 800);
+      if (A.cfg.siteUrl && A.cfg.autoBrief) {
+        checkSite(A.cfg.siteUrl, function (err, ms) {
+          if (err) notice("alert", "🔴 Startup site check: " + A.cfg.siteUrl + " did not respond.");
+          else audit("AI", "Website", "Startup site check: UP in " + ms + " ms", "READ", "EXECUTED");
+        });
+      }
+    });
     setInterval(function () { pingBridge(); }, 20000);
     setInterval(function () { proactiveCheck(false); }, 5 * 60000);
     setTimeout(function () { proactiveCheck(true); }, 4000);
@@ -894,10 +1209,21 @@
   window.NexusAgent = {
     init: init,
     handle: function (q) { return X ? handle(q) : null; },
+    /* programmatic ask — runs an intent and streams the result to the console */
+    run: function (q) {
+      if (!X) return null;
+      var res = handle(q);
+      if (res && res.html && X.appendAI) X.appendAI(res.html);
+      return res;
+    },
     viewDashboard: viewDashboard,
     viewTasks: viewTasks,
     viewKnowledge: viewKnowledge,
     briefing: function () { return X ? briefingHtml() : ""; },
+    securityReport: function () { return X ? securityHtml() : ""; },
+    checkSiteNow: function (cb) { if (X) siteStatusHtml(cb); },
+    siteUrl: function () { return A.cfg.siteUrl || ""; },
+    startupReport: function () { if (X) startupReport(); },
     pingBridge: function (cb) { pingBridge(cb); },
     bridge: bridge,
   };

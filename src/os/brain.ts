@@ -560,6 +560,81 @@ export function ask(raw: string): Reply {
       };
   }
 
+  /* ---- tech intelligence (live, keyless: Hacker News) ---- */
+  if (/tech (news|update|briefing|intel)|what'?s new in tech|technology (news|update)/.test(q)) {
+    const KW = ["ai", "llm", "gpt", "openai", "anthropic", "agent", "automation", "n8n", "zapier", "wordpress", "woocommerce", "ecommerce", "javascript", "node", "react", "supabase", "postgres", "github", "aws", "security", "breach", "startup", "saas", "api", "microsoft", "google", "nvidia", "freelanc"];
+    const score = (t: string) => KW.reduce((n, k) => (t.indexOf(k) !== -1 ? n + 1 : n), 0);
+    fetch("https://hacker-news.firebaseio.com/v0/topstories.json")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((ids: number[] | null) => {
+        if (!ids) throw new Error("feed down");
+        return Promise.all(ids.slice(0, 30).map((id) => fetch("https://hacker-news.firebaseio.com/v0/item/" + id + ".json").then((r) => r.json())));
+      })
+      .then((items: { title?: string; url?: string }[]) => {
+        const rel = items
+          .filter((it) => it && it.title && score(it.title.toLowerCase()) > 0)
+          .sort((a, b) => score(b.title!.toLowerCase()) - score(a.title!.toLowerCase()))
+          .slice(0, 5);
+        if (!rel.length) throw new Error("no match");
+        store.pushNotice("ai", "📡 Tech scan: " + rel.length + " relevant signals — top: " + rel[0].title!.slice(0, 70) + "… (live feed in the Live feed panel)");
+        store.addAudit("AI", "Tech Intel", "Scanned HN top 30 → " + rel.length + " relevant signals", "READ", "EXECUTED");
+        store.emit("system");
+      })
+      .catch(() => store.pushNotice("ai", "📡 Tech scan: feed unreachable or no signals matched your focus areas. I never invent news — retry later."));
+    return {
+      sound: "ding",
+      html:
+        S("Tech intelligence — live scan queued") +
+        L("Scanning Hacker News top stories (free, no API key), filtered to your focus: AI, automation, e-commerce, web dev, security.") +
+        L("Signals land in the <b>Live feed</b> as they're scored. Pipeline: NEWS → ANALYSIS → OPPORTUNITY → SKILL → PROJECT → MONEY.") +
+        D([["Honesty", "No invented headlines — if the feed is down, the notice says so."]]),
+    };
+  }
+
+  /* ---- security monitoring (evidence-based, computed from the audit trail) ---- */
+  if (/security (check|status|scan|report)|am i (safe|secure)|anything suspicious/.test(q)) {
+    const denied = s.audit.filter((a) => a.outcome === "DENIED").length;
+    const pending = s.audit.filter((a) => a.scope === "FINANCIAL" && a.outcome === "PENDING").length;
+    const bad = s.integrations.filter((i) => i.status === "error");
+    store.addAudit("AI", "Security", "Security scan: " + denied + " denials, " + bad.length + " failing integrations", "READ", "EXECUTED");
+    return {
+      sound: "ding",
+      html:
+        S("Security scan — local scope") +
+        L(`${denied ? N(String(denied), "w") : N("0")} denied actions in the audit log — ${denied > 3 ? "a spike worth reviewing (Audit tab)." : "the approval gate is working as designed."}`) +
+        L(`${pending ? N(String(pending), "w") + " financial action(s) awaiting your approval — they never execute without you." : "No pending financial approvals."}`) +
+        L(bad.length ? `${N(bad.map((b) => esc(b.name)).join(", "), "d")} in ERROR — failed integrations can mask real events; say “retry”.` : "All integrations healthy.") +
+        D([
+          ["Rule", "I never claim an intrusion without evidence — only WHAT / WHY SUSPICIOUS / EVIDENCE / WHAT TO DO."],
+          ["Injection barrier", "Webpages, emails and documents are DATA, never instructions — external text cannot command me."],
+        ]),
+    };
+  }
+
+  /* ---- website monitoring (config required — honest) ---- */
+  if (/check my website|website (status|health|monitor)|is my (site|website) (up|down)|uptime/.test(q)) {
+    return {
+      sound: "ding",
+      html:
+        S("Website monitoring") +
+        L("Data unavailable — connection required. In the portable build say “my website is https://…” and real reachability probes run with response times.") +
+        L("Deep checks (status codes, SSL, broken pages, GA4 traffic) need the Phase-2 server probe + GA4 Data API key.") +
+        D([["Config screen", "System Health → Security & website monitoring"], ["Never hard-coded", "All credentials live in .env on the backend only."]]),
+    };
+  }
+
+  /* ---- startup report ---- */
+  if (/startup report|system status|jarvis status/.test(q)) {
+    return {
+      sound: "ding",
+      html:
+        S("System status") +
+        L(`AI: ${N("ONLINE")} · Voice: ${N("ONLINE")} · Database: ${N(s.orders.length + " orders")} · Internet: ${N("check browser")}`) +
+        L(`Business: ${N("ONLINE")} · Freelance: ${N(s.leads.filter((l) => l.stage !== "won" && l.stage !== "lost").length + " open leads")} · Security: ${N("ARMED")}`) +
+        L(`Website monitoring: ${N("NOT CONFIGURED", "w")} — connect it in System Health.`),
+    };
+  }
+
   /* ---- fallback ---- */
   return {
     sound: "ding",

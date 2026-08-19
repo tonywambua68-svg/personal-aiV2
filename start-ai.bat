@@ -26,24 +26,26 @@ if %errorlevel% neq 0 (
 
 echo  [OK] Node.js found
 echo  [..] Starting the AI server...
+echo  [..] Starting the computer-control bridge (localhost:8787)...
 echo.
 
-REM --- 2. Start the server in its own window (so we can stop it cleanly) ---
+REM --- 2. Start the server + computer bridge in their own windows ---
 cd /d "%~dp0standalone"
 start "NEXUS AI Server" node server.js
+start "NEXUS AI Bridge" node bridge.js
 
-REM --- 3. Wait for it to come up, then open the dashboard ---
+REM --- 3. Wait for them to come up, then open the dashboard ---
 timeout /t 2 /nobreak >nul
 start http://localhost:8080
 
 echo  [OK] Server started   ->  http://localhost:8080
+echo  [OK] Bridge started    ->  http://localhost:8787 (computer control)
 echo  [OK] Dashboard opened in your browser
 echo.
-echo  TIP: Click once inside the page to enable sounds.
-echo  TIP: Press the "Simulate new order" button in Automations
-echo       to hear the cash register.
+echo  TIP: Click once inside the page to enable sound + voice.
+echo  TIP: First run? Open System Health for the startup report.
 echo.
-echo  To STOP the AI: run stop-ai.bat (or close the "NEXUS AI Server" window)
+echo  To STOP the AI: run stop-ai.bat (or close the two NEXUS windows)
 echo.
 timeout /t 8 >nul
 exit
