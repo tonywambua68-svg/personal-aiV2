@@ -180,16 +180,25 @@ The full TypeScript version mirrors this: products in `src/os/data.ts`, intents 
 
 ## Taking it to your computer / backing it up
 
-You have the complete project as plain files — copy the whole folder via USB, or:
+**One-click GitHub setup** (recommended — see **`GITHUB_GUIDE.md`** for exact clicks):
+
+- **First time:** double-click **`publish-to-github.bat`** → it checks Git, verifies your
+  secrets are excluded, commits safely, then asks you to paste your GitHub repo URL.
+- **Daily backups:** double-click **`update-github.bat`** → commits + pushes any changes.
+- **Another PC:** `git clone https://github.com/YOURNAME/nexus-os.git` → `start-ai.bat`
+
+The scripts **refuse to upload** if `.env` (API keys) isn't excluded. Your secrets,
+`keys/`, data exports and `bridge.config.json` never leave your computer.
+
+Manual version, if you prefer:
 
 ```bash
 git init
 git add .
 git commit -m "NEXUS//OS demo"
-# create a private repo on github.com, then:
+# create a private repo on github.com (NO README!), then:
 git remote add origin https://github.com/YOURNAME/nexus-os.git
 git push -u origin main
-# on any other computer: git clone that URL → npm install → npm run dev
 ```
 
 ---

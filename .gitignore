@@ -28,3 +28,7 @@ Thumbs.db
 *-export.json
 .next/
 build/
+
+# per-machine config (contains your personal folder paths — regenerated automatically)
+standalone/bridge.config.json
+bridge.config.json
