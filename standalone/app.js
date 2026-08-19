@@ -643,6 +643,20 @@
 
   /* ---------------- view: system health + TEST SYSTEM ---------------- */
   function viewHealth() {
+    /* local compat shims (keeps this view self-contained) */
+    const state = S;
+    if (!state.skills) state.skills = [];
+    function h(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+    function html(tag, cls, inner) { const e = document.createElement(tag); if (cls) e.className = cls; if (inner) e.innerHTML = inner; return e; }
+    function panel(title, iconName, contentEl) {
+      const p = document.createElement("div"); p.className = "panel";
+      const ph = document.createElement("div"); ph.className = "panel-h";
+      ph.innerHTML = '<span style="color:var(--acc)">' + icon(iconName, 15) + '</span><span class="t">' + title + "</span>";
+      const pb = document.createElement("div"); pb.className = "panel-b";
+      if (contentEl) pb.appendChild(contentEl);
+      p.append(ph, pb);
+      return p;
+    }
     const bootAt = window.__nexusBoot || Date.now();
     const kb = Math.max(1, Math.round(JSON.stringify(state).length / 1024));
     const lowCount = state.products.filter(function (p) { return p.stock <= 2; }).length;
